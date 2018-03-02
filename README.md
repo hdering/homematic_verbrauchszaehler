@@ -38,7 +38,7 @@ Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der rea
 
 ## Changelog
 
-### 1.0.2 (2018-03-02)
+### 1.0.3 (2018-03-02)
 * (hdering) Bei Überlauf, Neustart, Rücksetzen oder oder wird der alte Wert nicht mehr gespeichert. Logik nochmals vereinfacht.
 
 ### 1.0.2 (2018-02-28)
