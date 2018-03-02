@@ -5,22 +5,22 @@ Inspiriert durch http://forum.iobroker.net/viewtopic.php?f=21&t=2262&sid=92d04ba
 Skript dient zur Ermittlung des Stromverbrauchs bei Geräten.
 
 Zählerstände werden gespeichert jeweils
--jeden Tag
--jede Woche Montag
--jeden Monatsersten
--jeden Quartalsersten
--jedes Neujahr
+* jeden Tag
+* jede Woche Montag
+* jeden Monatsersten
+* jeden Quartalsersten
+* jedes Neujahr
 wenn ein neuer Wert reinkommt.
 
 Der Strompreis wird in die Variable "Strompreis_aktuell" geschrieben. 
 Änderungen des Strompreispreises müssen rechtzeitig per Cronjob programmiert werden.
 
 Die Stromkosten (Verbrauch * Preis) werden ebenso
--jeden Tag
--jede Woche Montag
--jeden Monatsersten
--jeden Quartalsersten
--jedes Neujahr
+* jeden Tag
+* jede Woche Montag
+* jeden Monatsersten
+* jeden Quartalsersten
+* jedes Neujahr
 genullt und bis dahin durch die Berechnung (der Differenz des aktuellen Zählerstandes - Zählerstand Beginn des Zeitraums) * Strompreis ermittelt.
 
 Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der realen Zählerstände der Geräte.
