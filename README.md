@@ -38,8 +38,14 @@ Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der rea
 
 ## Changelog
 
+### 1.0.2 (2018-03-02)
+* (hdering) Bei Überlauf, Neustart, Rücksetzen oder oder wird der alte Wert nicht mehr gespeichert. Logik nochmals vereinfacht.
+
 ### 1.0.2 (2018-02-28)
-* (hdering) Es wurden nur 2 Fälle angefangen. 1. Neuer Wert kommt vom Stromzähler. 2. Stromzähler wurde zurückgesetzt. Fall 3, dass einfach nur die CCU neugestartet wird, wurde nicht abgefangen.
+* (hdering) Es wurden nur 2 Fälle abgefangen. 
+1. (Standard) Neuer Wert kommt vom Stromzähler. 
+2. Stromzähler wurde zurückgesetzt. 
+3. (NEU) CCU wurde neugestartet.
 
 ### 1.0.1 (2018-02-01)
 * (hdering) Größere Änderungen durchgeführt:
