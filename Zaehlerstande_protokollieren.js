@@ -1,109 +1,4 @@
-/* Strom Zaehlerstaende, Verbrauch und Kosten
-
-Skript dient zur Ermittlung des Stromverbrauchs bei Geräten.
-
-Getestete Geräte:
-- HM-ES-TX-WM
-- HM-ES-PMSw1-Pl-DN-R1
-- HMIP-PSM
-
----------------------------------------------------------------------------------------
-
-Zählerstände werden gespeichert jeweils
--jeden Tag
--jede Woche Montag
--jeden Monatsersten
--jeden Quartalsersten
--jedes Neujahr
-wenn ein neuer Wert reinkommt.
-
----------------------------------------------------------------------------------------
-
-Der Strompreis wird in die Variable "Strompreis_aktuell" geschrieben. 
-Änderungen des Strompreispreises müssen rechtzeitig per Cronjob programmiert werden.
-
----------------------------------------------------------------------------------------
-
-Die Stromkosten (Verbrauch * Preis) werden ebenso
--jeden Tag
--jede Woche Montag
--jeden Monatsersten
--jeden Quartalsersten
--jedes Neujahr
-genullt und bis dahin durch die Berechnung (der Differenz des aktuellen Zählerstandes - Zählerstand Beginn des Zeitraums) * Strompreis ermittelt.
-
----------------------------------------------------------------------------------------
-
-Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der realen Zählerstände der Geräte.
-
----------------------------------------------------------------------------------------
-
-Changelog:
-
-erstellt: 09.02.2016 von pix auf Basis des alten Skriptes
-18.02.2016 externes Log zugefügt
-19.02.2016 Fehler beseitigt
-29.02.2016 löst definitiv die alten Skripte ab
-           Leerzeichen aus Gerätenamen entfernen (Regexp)
-01.03.2016 Optin Log Subscriptions durch Regexp Funktion in anderem Skript ersetzt
-21.04.2016 Korrektur Code Quartalsauslösung
-08.05.2016 formatDate Parameter von JJJJ.MM.TT auf YYYY.MM.DD
-24.05.2016 parseFloat vermehrt eingesetzt, der neue Javascript Adapter Version prüft genauer, ob typeof number wirklich number und nicht string ist
-07.07.2016 Quartalserkennung durch parseInt korrigiert
-09.07.2016 schedule für Eingabe neuen Strompreis an Neujahr
-02.08.2016 Zählerstand schreiben - Typ Fehler korrigiert
-12.06.2016 Aufbereitung Gerätenamen verbessert
-
---------------
-
-01.02.2018  Größere Änderungen durchgeführt:
-            Jahreswechsel und mnachmal Tageswechsel wurde bei mir nicht zuverlässig erkannt, daher habe ich die Art der Erkennung geändert.
-            5 Schedules registrieren jeweils Tages-, Wochen-, Monats-, Quartals-, Jahreswechsel und setzen eine entsprechende Variable.
-            Diese Variablen werden bei jedem Zählerstand geprüft.
-            
-28.02.2018  Das Skript hat nur 2 von 3 Fällen abgefangen:
-            1. Standardfall: Neuer Wert kommt vom Stromzähler (Neuer Wert ist größer als alter Wert)
-            
-            Beispiel:
-            obj.newState.val:4925.1
-            obj.oldState.val:4924.3
-            
-            2. Stromzähler wurde zurückgesetzt (Batterie leer, für längere Zeit vom Strom genommen). Neuer Wert Beginn bei 0.
-            
-            Beispiel:
-            obj.newState.val:0
-            obj.oldState.val:4924.3
-            
-            obj.newState.val:2.3
-            obj.oldState.val:0
-            
-            obj.newState.val:5.4
-            obj.oldState.val:2.3
-            
-            3. NEU: CCU2 wurde neugestartet (Sobald ein Status vom Stromzähler kommt ist dieser unter Umständen zu Beginn 0 (gleiches Verhalten wie bei Fall 2). Dieser Fall muss aber abgefangen werden.
-            Es werden 2 darauffolgende neue Zählerstände zunächst ignoriert. Falls auch beim 3 mal der neue Wert kleiner als alte Wert ist, muss von Fall 2 ausgegangen werden.
-            
-            Beispiel:
-            1ter Lauf:
-            obj.newState.val:0
-            obj.oldState.val:4924.3
-            
-            2ter Lauf:
-            obj.newState.val:4925.1
-            obj.oldState.val:0
-            
-            3ter Lauf:
-            obj.newState.val:4926.1
-            obj.oldState.val:4925.1
-            
----------------------------------------------------------------------------------------
-
-TODO:
-
-- Preisänderung innerhalb des Jahres konfigurierbar machen
-- Grundpreis berechnen
-
-*/
+// https://github.com/hdering/homematic_stromverbrauch_protokollieren
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -245,11 +140,7 @@ function run(obj) {
     if (logging) log('vor der Aufbereitung: ' + obj.common.name); 
     
     var geraetename = entferneDatenpunkt(obj.common.name); // .METER oder .ENERGY_COUNTER
-    
-    //log('nach entferne Datenpunkt: ' + geraetename);
-    //geraetename = geraetename.replace(/\s/g, ""); // per Regexp Leerzeichen entfernen
-    //geraetename = checkBlacklist(geraetename);  // Wenn man keine Blacklist braucht, kann man diesen Teil auskommentieren
-    
+
     if (logging) log('Nach der Aufbereitung: ' + geraetename); 
     
     //------------------------------------------------------------------------//
@@ -261,103 +152,69 @@ function run(obj) {
     
     // Schreiben der neuen Werte
 
-    // prüfe und schreibe Daten   
-    var idKumuliert =  instanz + pfad + geraetename + '.Zaehlerstand.kumuliert',
-        idBackup =     instanz + pfad + geraetename + '.Zaehlerstand.Backup';
+    var idKumuliert =  instanz + pfad + geraetename + '.Zaehlerstand.kumuliert';
     
-    var allesOK = false;
-    var NeustartDesGeraetesErkannt = false;
+    var NeustartEventuellErkannt = false;
+    var NeustartSicherErkannt = false;
     
-    // neuer Wert größer alter wert -> alles gut
-    // Fall 1
-    if (obj.newState.val >= obj.oldState.val) {
+    var oldState = obj.oldState.val;
+    var newState = obj.newState.val;
+    var difference = newState - oldState;
+
+    if(difference > 0) {
         
-        allesOK = true;
-        
-        if(getState(pfad + geraetename + '.config.NeustartErkannt').val) {
+        if(oldState !== 0) {
+
+            // Kumulierten Wert mit Ist-Wert (inkl. Backup) synchronisieren
+            var newValueKumuliert = getState(idKumuliert).val + difference;
             
-            //Es wird 1 Wert übersprungen. Danach wird der alte Wert mit dem neuesten Wert geprüft.
-            //Ist der neue Wert kleiner als der alte Wert, dann muss davon ausgegangen werden, dass das Gerät neugestartet wurde.
-            //Ansonsten die CCU neugestartet.
+            newValueKumuliert = parseFloat(newValueKumuliert);
+
+            setState(idKumuliert, newValueKumuliert);
             
-            if(obj.newState.val < getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val) {
-                
-                if(logging) {
-                    var message6 =  geraetename + '\n'
-                                    + 'Neustart des Gerät sehr wahrscheinlich erkannt.\n'
-                                    + 'obj.newState.val:' + obj.newState.val + '\n'
-                                    + 'NeustartErkanntAlterWert:' + getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val;
-                    
-                    send_message(message6);
-                }
-                
-                allesOK = false;
-                
-                NeustartDesGeraetesErkannt = true;
-                
-            } else {
-                
-                setState(pfad + geraetename + '.config.NeustartErkannt', false);
+        } else {
+            
+            if(newState < getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val) {
+
+                NeustartSicherErkannt = true;
             }
         }
         
     } else {
         
         // Fall 2 oder 3
-        // Irgendetwas läuft außerplanmäßig. Wert wird sicherheitshalber gespeichert
-        setState(pfad + geraetename + '.config.NeustartErkannt', true);
+        // Irgendetwas läuft außerplanmäßig. Wert wird sicherheitshalber gespeichert und nächster Lauf abgewartet
+        NeustartEventuellErkannt = true;
+        
         setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', obj.oldState.val);
     }
-
-    if(allesOK) {
+    
+    if(NeustartEventuellErkannt) {
         
-        // Kumulierten Wert mit Ist-Wert (inkl. Backup) synchronisieren
-        var newValueKumuliert = parseFloat(obj.newState.val + getState(idBackup).val);
-
-        setState(idKumuliert, newValueKumuliert);
+        if(logging) {
+            var message =  geraetename + '\n'
+                            + 'Entweder die CCU oder Stromzähler wurden neugestartet/zurückgesetzt.\n'
+                            + 'Dieser Wert wird einmal ignoriert und auf den nächsten Wert gewartet.';
         
-    } else {
+            send_message(message);
+        }
+    }
+    
+    if(NeustartSicherErkannt) {
 
-        // Fall 2 (Zähler im Gerät übergelaufen oder genullt)
-        if(NeustartDesGeraetesErkannt) {
+        // zurücksetzen der Variable
+        setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', 0);
+        
+        //----------------------------------------------------------------//
 
-            // Differenz berechnen
-            var differenz = obj.oldState.val - obj.newState.val;                        
-            
-            // Differenz und Backup addieren "und den Werteabriss ausgleichen"
-            setState(idBackup, parseFloat(getState(idBackup).val + differenz));                     
-            
-            // damit neuer kumulierter Wert stetig weiter wächst
-            setState(idKumuliert, parseFloat(obj.newState.val + getState(idBackup).val));   
-            
-            // zurücksetzen der Variable
-            setState(pfad + geraetename + '.config.NeustartErkannt', false);
-            setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', 0);
-            
-            //----------------------------------------------------------------//
-
-            var meldung = 'Achtung!\n\n' 
-                    + 'Der Stromzählerstand (' + geraetename + ') ist übergelaufen oder gelöscht worden (ggf. Stromausfall).\n'
-                    + 'Der letzte Zählerstand vor dem Reset wird nun zum Neuen addiert. Bitte unbedingt die Werte prüfen. \n\n'
+        var message = geraetename + '\n'
+                    + 'Der Stromzähler (' + geraetename + ') ist übergelaufen, gelöscht oder neugestartet worden (ggf. Stromausfall).\n'
                     + 'newState:' + obj.newState.val + '\n' 
                     + 'oldState:' + obj.oldState.val + '\n'
                     + 'differenz:' + differenz + '\n'
-                    + 'idBackup:' + parseFloat(obj.newState.val + getState(idBackup).val) + '\n'
-                    + 'idKumuliert:' + parseFloat(obj.newState.val + getState(idBackup).val);
+                    + 'idKumuliert:' + getState(idKumuliert).val;
 
-            send_message(meldung);
-            
-        } else {
-            
-            // Fall 3 (Eventuell CCU neugestartet worden)
-            if(logging) {
-                var message3 =  geraetename + '\n'
-                                + 'Entweder die CCU oder der Zähler wurden zurückgesetzt/neugestartet.\n'
-                                + 'Dieser Wert wird einmal ignoriert und auf den nächsten Wert gewartet.';
-
-                send_message(message3);
-            }
-        }
+        send_message(message);
     }
     
     //------------------------------------------------------------------------//
@@ -553,14 +410,7 @@ function erstelleStates (geraet) {
     createState(pfad + geraet + '.Zaehlerstand.Monat',   0, {name: 'Zählerstand Monatsbeginn ('      + geraet + ')', type: 'number', unit:'kWh'});
     createState(pfad + geraet + '.Zaehlerstand.Quartal', 0, {name: 'Zählerstand Quartalsbeginn ('    + geraet + ')', type: 'number', unit:'kWh'});
     createState(pfad + geraet + '.Zaehlerstand.Jahr',    0, {name: 'Zählerstand Jahresbeginn ('      + geraet + ')', type: 'number', unit:'kWh'});
-            
-    // Backup Zählerstand
-    createState(pfad + geraet + '.Zaehlerstand.Backup',  0, {
-        name: 'Zählerstand Backup ('+ geraet + '), Differenz aus altem und neuem Wert nach Überlauf oder Reset',
-        desc: 'wird beim Umspringen des Original-Zählerstandes (' + geraet + ') zu diesem addiert',
-        type: 'number',
-        unit: 'Wh'});
-        
+
     // Verbrauch 
     createState(pfad + geraet + '.Verbrauch.Tag',        0, {name: 'Verbrauch seit Tagesbeginn ('    + geraet + ')', type: 'number', unit:'kWh'});
     createState(pfad + geraet + '.Verbrauch.Woche',      0, {name: 'Verbrauch seit Wochenbeginn ('   + geraet + ')', type: 'number', unit:'kWh'});
@@ -611,14 +461,6 @@ function erstelleStates (geraet) {
         def: false
     });
 
-    // Neustart des Zählers oder der CCU erkannt
-    createState(pfad + geraet + '.config.NeustartErkannt', false, {
-        read: true,
-        write: true,
-        type: "boolean",
-        def: false
-    });
-    
     createState(pfad + geraet + '.config.NeustartErkanntAlterWert', 0);
 
     if (logging) log('States in der Instanz ' + instanz + pfad + ' erstellt');   
