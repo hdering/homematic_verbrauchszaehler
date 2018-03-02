@@ -3,6 +3,11 @@ Mittels ioBroker Javascript Stromzähler protokollieren
 
 Inspiriert durch http://forum.iobroker.net/viewtopic.php?f=21&t=2262&sid=92d04ba1222eeb6a78674eb16637c5c2&start=100
 
+### Getestete Geräte:
+- HM-ES-TX-WM
+- HM-ES-PMSw1-Pl-DN-R1
+- HMIP-PSM
+
 ## Changelog
 
 ### 1.0.2 (2018-02-28)
