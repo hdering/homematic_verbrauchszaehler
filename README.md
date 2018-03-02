@@ -21,6 +21,7 @@ Die Stromkosten (Verbrauch * Preis) werden ebenso
 * jeden Monatsersten
 * jeden Quartalsersten
 * jedes Neujahr
+
 genullt und bis dahin durch die Berechnung (der Differenz des aktuellen Zählerstandes - Zählerstand Beginn des Zeitraums) * Strompreis ermittelt.
 
 Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der realen Zählerstände der Geräte.
