@@ -17,7 +17,7 @@ var instanz     = 'javascript.' + instance + '.';
 var pfad        = 'Strom.';
 
 // persönliche Blacklist: Diese Teile werden aus den Homematic Gerätenamen entfernt ( aus "Waschmaschine Küche:2.ENERGY_COUNTER" wird "Waschmaschine", aus "Kühlschrank Strommessung.METER" wird "Kühlschrank")
-var blacklist   = [':1', ':2', ':6'];
+var blacklist   = [':1', ':2', ':3', ':4', ':5', ':6', ':7', ':8'];
 
 var AnzahlKommastellenKosten = 2;
 var AnzahlKommastellenVerbrauch = 3;
@@ -143,149 +143,159 @@ function run(obj) {
 
     if (logging) log('Nach der Aufbereitung: ' + geraetename); 
     
-    //------------------------------------------------------------------------//
-    
-    // States erstellen (CreateStates für dieses Gerät)
-    erstelleStates(geraetename);
-    
-    //------------------------------------------------------------------------//
-    
-    // Schreiben der neuen Werte
-
-    var idKumuliert =  instanz + pfad + geraetename + '.Zaehlerstand.kumuliert';
-    
-    var NeustartEventuellErkannt = false;
-    var NeustartSicherErkannt = false;
-    
-    var oldState = obj.oldState.val;
-    var newState = obj.newState.val;
-    var difference = newState - oldState;
-
-    if(difference > 0) {
+    if(typeof geraetename !== "undefined") {
         
-        if(oldState !== 0) {
-
-            // Kumulierten Wert mit Ist-Wert (inkl. Backup) synchronisieren
-            var newValueKumuliert = getState(idKumuliert).val + difference;
+        //------------------------------------------------------------------------//
+        
+        // States erstellen (CreateStates für dieses Gerät)
+        erstelleStates(geraetename);
+        
+        //------------------------------------------------------------------------//
+        
+        // Schreiben der neuen Werte
+    
+        var idKumuliert =  instanz + pfad + geraetename + '.Zaehlerstand.kumuliert';
+        
+        var NeustartEventuellErkannt = false;
+        var NeustartSicherErkannt = false;
+        
+        var oldState = obj.oldState.val;
+        var newState = obj.newState.val;
+        var difference = newState - oldState;
+    
+        if(difference > 0) {
             
-            newValueKumuliert = parseFloat(newValueKumuliert);
-
-            setState(idKumuliert, newValueKumuliert);
+            if(oldState !== 0) {
+    
+                // Kumulierten Wert mit Ist-Wert (inkl. Backup) synchronisieren
+                var newValueKumuliert = getState(idKumuliert).val + difference;
+                
+                newValueKumuliert = parseFloat(newValueKumuliert);
+    
+                setState(idKumuliert, newValueKumuliert);
+                
+            } else {
+                
+                if(newState < getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val) {
+    
+                    NeustartSicherErkannt = true;
+                }
+            }
             
         } else {
             
-            if(newState < getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val) {
-
-                NeustartSicherErkannt = true;
+            // Fall 2 oder 3
+            // Irgendetwas läuft außerplanmäßig. Wert wird sicherheitshalber gespeichert und nächster Lauf abgewartet
+            NeustartEventuellErkannt = true;
+            
+            setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', obj.oldState.val);
+        }
+        
+        if(NeustartEventuellErkannt) {
+            
+            if(logging) {
+                var message =  geraetename + '\n'
+                                + 'Entweder die CCU oder Stromzähler wurden neugestartet/zurückgesetzt.\n'
+                                + 'Dieser Wert wird einmal ignoriert und auf den nächsten Wert gewartet.';
+            
+                send_message(message);
             }
         }
         
-    } else {
-        
-        // Fall 2 oder 3
-        // Irgendetwas läuft außerplanmäßig. Wert wird sicherheitshalber gespeichert und nächster Lauf abgewartet
-        NeustartEventuellErkannt = true;
-        
-        setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', obj.oldState.val);
-    }
+        if(NeustartSicherErkannt) {
     
-    if(NeustartEventuellErkannt) {
-        
-        if(logging) {
-            var message =  geraetename + '\n'
-                            + 'Entweder die CCU oder Stromzähler wurden neugestartet/zurückgesetzt.\n'
-                            + 'Dieser Wert wird einmal ignoriert und auf den nächsten Wert gewartet.';
-        
+            // zurücksetzen der Variable
+            setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', 0);
+            
+            //----------------------------------------------------------------//
+    
+            var message = geraetename + '\n'
+                        + 'Der Stromzähler (' + geraetename + ') ist übergelaufen, gelöscht oder neugestartet worden (ggf. Stromausfall).\n'
+                        + 'newState:' + obj.newState.val + '\n' 
+                        + 'oldState:' + obj.oldState.val + '\n'
+                        + 'differenz:' + differenz + '\n'
+                        + 'idKumuliert:' + getState(idKumuliert).val;
+    
             send_message(message);
         }
-    }
-    
-    if(NeustartSicherErkannt) {
-
-        // zurücksetzen der Variable
-        setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', 0);
         
-        //----------------------------------------------------------------//
-
-        var message = geraetename + '\n'
-                    + 'Der Stromzähler (' + geraetename + ') ist übergelaufen, gelöscht oder neugestartet worden (ggf. Stromausfall).\n'
-                    + 'newState:' + obj.newState.val + '\n' 
-                    + 'oldState:' + obj.oldState.val + '\n'
-                    + 'differenz:' + differenz + '\n'
-                    + 'idKumuliert:' + getState(idKumuliert).val;
-
+        //------------------------------------------------------------------------//
+        
+        // aktualisiere den Verbrauch und die Kosten
+        _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenKosten);
+        _preis      = getState(idStrompreis).val;
+        
+        berechneVerbrauchUndKosten(geraetename, _zaehler, _preis); // in kWh
+       
+        //------------------------------------------------------------------------//
+        // Zurücksetzen der Werte
+       
+        if(getState(pfad + geraetename + '.config.Tag').val) {
+            
+            if (logging) send_message("Tageswechsel wurde erkannt. (" + geraetename + ")");
+            
+            setState(pfad + geraetename + '.config.Tag', false);
+           
+            resetVerbrauchUndKosten(geraetename, 'Tag');
+    
+            schreibeZaehlerstand(geraetename, 'Tag');
+        }
+        
+        if(getState(pfad + geraetename + '.config.Woche').val) {
+            
+            if (logging) send_message("Wochenwechsel wurde erkannt. (" + geraetename + ")");
+            
+            setState(pfad + geraetename + '.config.Woche', false);
+           
+            resetVerbrauchUndKosten(geraetename, 'Woche');
+            
+            schreibeZaehlerstand(geraetename, 'Woche');
+        }
+        
+        if(getState(pfad + geraetename + '.config.Monat').val) {
+            
+            if (logging) send_message("Monatswechsel wurde erkannt. (" + geraetename + ")");
+            
+            setState(pfad + geraetename + '.config.Monat', false);
+           
+            resetVerbrauchUndKosten(geraetename, 'Monat');
+    
+            schreibeZaehlerstand(geraetename, 'Monat');
+        }
+        
+        if(getState(pfad + geraetename + '.config.Quartal').val) {
+            
+            if (logging) send_message("Quartalswechsel wurde erkannt. (" + geraetename + ")");
+            
+            setState(pfad + geraetename + '.config.Quartal', false);
+            
+            resetVerbrauchUndKosten(geraetename, 'Quartal');
+    
+            schreibeZaehlerstand(geraetename, 'Quartal');
+        }
+        
+        if(getState(pfad + geraetename + '.config.Jahr').val) {
+            
+            if (logging) send_message("Jahreswechsel wurde erkannt. (" + geraetename + ")");
+            
+            setState(pfad + geraetename + '.config.Jahr', false);
+           
+            resetVerbrauchUndKosten(geraetename, 'Jahr');
+    
+            schreibeZaehlerstand(geraetename, 'Jahr');
+        }
+    
+        //------------------------------------------------------------------------//
+        
+        if (logging) log('------------ ENDE ------------');
+        
+    } else {
+        
+        var message = 'Fehler beim Erstellen des Gerätenamens:\n'
+                    + 'obj.common.name: ' + obj.common.name;
+        
         send_message(message);
     }
-    
-    //------------------------------------------------------------------------//
-    
-    // aktualisiere den Verbrauch und die Kosten
-    _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenKosten);
-    _preis      = getState(idStrompreis).val;
-    
-    berechneVerbrauchUndKosten(geraetename, _zaehler, _preis); // in kWh
-   
-    //------------------------------------------------------------------------//
-    // Zurücksetzen der Werte
-   
-    if(getState(pfad + geraetename + '.config.Tag').val) {
-        
-        if (logging) send_message("Tageswechsel wurde erkannt. (" + geraetename + ")");
-        
-        setState(pfad + geraetename + '.config.Tag', false);
-       
-        resetVerbrauchUndKosten(geraetename, 'Tag');
-
-        schreibeZaehlerstand(geraetename, 'Tag');
-    }
-    
-    if(getState(pfad + geraetename + '.config.Woche').val) {
-        
-        if (logging) send_message("Wochenwechsel wurde erkannt. (" + geraetename + ")");
-        
-        setState(pfad + geraetename + '.config.Woche', false);
-       
-        resetVerbrauchUndKosten(geraetename, 'Woche');
-        
-        schreibeZaehlerstand(geraetename, 'Woche');
-    }
-    
-    if(getState(pfad + geraetename + '.config.Monat').val) {
-        
-        if (logging) send_message("Monatswechsel wurde erkannt. (" + geraetename + ")");
-        
-        setState(pfad + geraetename + '.config.Monat', false);
-       
-        resetVerbrauchUndKosten(geraetename, 'Monat');
-
-        schreibeZaehlerstand(geraetename, 'Monat');
-    }
-    
-    if(getState(pfad + geraetename + '.config.Quartal').val) {
-        
-        if (logging) send_message("Quartalswechsel wurde erkannt. (" + geraetename + ")");
-        
-        setState(pfad + geraetename + '.config.Quartal', false);
-        
-        resetVerbrauchUndKosten(geraetename, 'Quartal');
-
-        schreibeZaehlerstand(geraetename, 'Quartal');
-    }
-    
-    if(getState(pfad + geraetename + '.config.Jahr').val) {
-        
-        if (logging) send_message("Jahreswechsel wurde erkannt. (" + geraetename + ")");
-        
-        setState(pfad + geraetename + '.config.Jahr', false);
-       
-        resetVerbrauchUndKosten(geraetename, 'Jahr');
-
-        schreibeZaehlerstand(geraetename, 'Jahr');
-    }
-
-    //------------------------------------------------------------------------//
-    
-    if (logging) log('------------ ENDE ------------');
 }
 
 cacheSelectorStateMeter.on(function(obj) {
@@ -315,20 +325,30 @@ function entferneDatenpunkt(geraet) {
 
     // Rückgabe sollte keine Sonderzeichen oder Leerzeichen enthalten. Wenn doch, werden die entfernt oder ersetzt
     // Wenn man keine Blacklist braucht, kann man diesen Teil auskommentieren
-    rueckgabe = checkBlacklist(rueckgabe);                                      
 
-    if (logging) log('entferneDatenpunkt - rueckgabe2:' + rueckgabe);
-    
-    if (rueckgabe.charAt(rueckgabe.length - 1) == "-") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
-    if (rueckgabe.charAt(rueckgabe.length - 1) == "\\") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
-    if (rueckgabe.charAt(rueckgabe.length - 1) == ":") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
-    
-    if (logging) log('entferneDatenpunkt - rueckgabe3:' + rueckgabe);
+    try {
+        rueckgabe = checkBlacklist(rueckgabe);
+    }
+    catch(err) {
+        if (logging) log('entferneDatenpunkt - rueckgabe2:' + rueckgabe + ' error:' + err);
+    }
 
+    try {
+        if (rueckgabe.charAt(rueckgabe.length - 1) == "-") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
+        if (rueckgabe.charAt(rueckgabe.length - 1) == "\\") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
+        if (rueckgabe.charAt(rueckgabe.length - 1) == ":") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
+    }
+    catch(err) {
+        if (logging) log('entferneDatenpunkt - rueckgabe3:' + rueckgabe + ' error:' + err);
+    }
+    
     // per Regexp Leerzeichen entfernen
-    rueckgabe = rueckgabe.replace(/\s/g, "");
-    
-    if (logging) log('entferneDatenpunkt - rueckgabe4:' + rueckgabe);
+    try {
+        rueckgabe = rueckgabe.replace(/\s/g, "");
+    }
+    catch(err) {
+        if (logging) log('entferneDatenpunkt - rueckgabe4:' + rueckgabe + ' error:' + err);
+    }
 
     // todo
     return rueckgabe;
