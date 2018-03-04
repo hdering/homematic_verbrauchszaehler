@@ -2,7 +2,7 @@
 
 //----------------------------------------------------------------------------//
 
-Version: 1.0.4
+Version: 1.0.5
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -20,7 +20,7 @@ var instanz     = 'javascript.' + instance + '.';
 // Pfad innerhalb der Instanz
 var pfad        = 'Strom.';
 
-// persönliche Blacklist: Diese Teile werden aus den Homematic Gerätenamen entfernt ( aus "Waschmaschine Küche:2.ENERGY_COUNTER" wird "Waschmaschine", aus "Kühlschrank Strommessung.METER" wird "Kühlschrank")
+// Diese Teile werden aus den Gerätenamen entfernt
 var blacklist   = [':1', ':2', ':3', ':4', ':5', ':6', ':7', ':8'];
 
 var AnzahlKommastellenKosten = 2;
@@ -110,7 +110,7 @@ schedule("0 0 1 * *", function() {
 });
 
 // Quartalswechsel
-schedule("0 0 */3 * *", function() {
+schedule("0 0 1 */3 *", function() {
     setRecognizedChange('Quartal');
 });
 
@@ -360,15 +360,23 @@ function entferneDatenpunkt(geraet) {
 
 function checkBlacklist(name) {
     
+    var _name = "";
+    
     if (blacklist.length > 0) {
 
-      for(var i = 0; i < blacklist.length; i++) {
+        for(var i = 0; i < blacklist.length; i++) {
           
             if (name.indexOf(blacklist[i]) != -1) {
-                
+
                 // Zeichenketten, die in der Blacklist stehen, aus dem Namen löschen
-                return( name.substring(0, name.indexOf(blacklist[i])) );
-            } 
+                _name = name.substring(0, name.indexOf(blacklist[i]));
+            }
+        }
+
+        if(_name === "") {
+            return name;
+        } else {
+            return _name;
         }
     
     } else return (name);
@@ -426,7 +434,7 @@ function berechneVerbrauchUndKosten(geraet, zaehler, preis) {
 function erstelleStates (geraet) {
     
     // Kumulierter Zählerstand (wird nie kleiner)
-    createState(pfad + geraet + '.Zaehlerstand.kumuliert', 0, {name: 'Kumulierter Zählerstand (' + geraet + ') inkl. Backups', type: 'number', unit:'Wh'});
+    createState(pfad + geraet + '.Zaehlerstand.kumuliert', 0, {name: 'Kumulierter Zählerstand (' + geraet + ')', type: 'number', unit:'Wh'});
             
     // Zählerstand
     createState(pfad + geraet + '.Zaehlerstand.Tag',     0, {name: 'Zählerstand Tagesbeginn ('       + geraet + ')', type: 'number', unit:'kWh'});
