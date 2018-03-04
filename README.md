@@ -39,6 +39,10 @@ Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der rea
 
 ## Changelog
 
+### 1.0.5 (2018-03-04)
+* (hdering) Quartalswechsel korrigiert
+* (hdering) Funktion entferneDatenpunkt erweitert
+
 ### 1.0.4 (2018-03-03)
 * (hdering) Falls Gerätename nicht "normalisiert" werden kann, wird dies abgefangen und eine Nachricht erzeugt.
 
