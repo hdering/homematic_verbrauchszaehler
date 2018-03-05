@@ -2,17 +2,18 @@
 
 //----------------------------------------------------------------------------//
 
-// Version: 1.0.5
+// Version: 1.0.6
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
 
 var logging = true;
 
+var grundpreis = 6.40;
 var arbeitspreis = 0.2627;
+
 // Preis ab 01.01.
 var neuer_arbeitspreis = 0.2612;
-var grundpreis = 6.40;
 
 var instance    = '0';
 var instanz     = 'javascript.' + instance + '.';
@@ -130,7 +131,7 @@ function run(obj) {
         log('Gewerk:       ' + obj.role);   // undefined
         log('Beschreibung: ' + obj.desc);   // undefined
         log('id:           ' + obj.id);
-        log('Name:         ' + obj.common.name);   // Waschmaschine Küche:2.ENERGY_COUNTER !!!!! Mac mini Strommessung.METER
+        log('Name:         ' + obj.common.name);   // Waschmaschine Küche:2.ENERGY_COUNTER
         log('channel ID:   ' + obj.channelId);     // hm-rpc.0.MEQ0170864.2
         log('channel Name: ' + obj.channelName);   // Waschmaschine Küche:2
         log('device ID:    ' + obj.deviceId);      // hm-rpc.0.MEQ0170864
@@ -229,6 +230,16 @@ function run(obj) {
         _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenKosten);
         _preis      = getState(idStrompreis).val;
         
+        // Wenn das Gerät einen eigenen Strompreis hat        
+        if(getObject(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis')) {
+            
+            if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val > 0) {
+                _preis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val;
+                
+                if (logging) console.log("Das Gerät:" + geraetename + " hat eigenen Strompreis: " + _preis);
+            }
+        }
+
         berechneVerbrauchUndKosten(geraetename, _zaehler, _preis); // in kWh
        
         //------------------------------------------------------------------------//
@@ -336,6 +347,9 @@ function entferneDatenpunkt(geraet) {
     catch(err) {
         if (logging) log('entferneDatenpunkt - rueckgabe2:' + rueckgabe + ' error:' + err);
     }
+    finally {
+        if (logging) log('entferneDatenpunkt - rueckgabe2:' + rueckgabe);
+    }
 
     try {
         if (rueckgabe.charAt(rueckgabe.length - 1) == "-") rueckgabe = rueckgabe.substr(0, rueckgabe.length - 1);
@@ -345,6 +359,9 @@ function entferneDatenpunkt(geraet) {
     catch(err) {
         if (logging) log('entferneDatenpunkt - rueckgabe3:' + rueckgabe + ' error:' + err);
     }
+    finally {
+        if (logging) log('entferneDatenpunkt - rueckgabe3:' + rueckgabe);
+    }
     
     // per Regexp Leerzeichen entfernen
     try {
@@ -352,6 +369,9 @@ function entferneDatenpunkt(geraet) {
     }
     catch(err) {
         if (logging) log('entferneDatenpunkt - rueckgabe4:' + rueckgabe + ' error:' + err);
+    }
+    finally {
+        if (logging) log('entferneDatenpunkt - rueckgabe4:' + rueckgabe);
     }
 
     // todo
@@ -493,7 +513,12 @@ function erstelleStates (geraet) {
         def: false
     });
 
+    // Neustart von CCU oder Gerät erkannt
     createState(pfad + geraet + '.config.NeustartErkanntAlterWert', 0);
+    
+    // Gerät hat eigenen Strompreis
+    createState(pfad + geraet + '.eigenerPreis.aktuell.Arbeitspreis', 0);
+    createState(pfad + geraet + '.eigenerPreis.aktuell.Grundpreis', 0);
 
     if (logging) log('States in der Instanz ' + instanz + pfad + ' erstellt');   
 }
