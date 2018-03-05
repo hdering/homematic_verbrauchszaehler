@@ -36,6 +36,7 @@ Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der rea
 
 - Preisänderung innerhalb des Jahres konfigurierbar machen
 - Grundpreis berechnen
+- Unterschiedliche Tarife für unterschiedliche Geräte
 
 ## Changelog
 
