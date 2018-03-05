@@ -25,20 +25,31 @@ Die Stromkosten (Verbrauch * Preis) werden ebenso
 genullt und bis dahin durch die Berechnung (der Differenz des aktuellen Zählerstandes - Zählerstand Beginn des Zeitraums) * Strompreis ermittelt.
 
 Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der realen Zählerstände der Geräte.
+
+---
+
+Jedes Gerät hat ab Version 1.0.6 in seinem Verzeichnis einen zusätzlichen Ordner "eigenerPreis", z.B.
+Strom.Küche.Kühlschrank.eigenerPreis.aktuell.Arbeitspreis
+Strom.Küche.Kühlschrank.eigenerPreis.aktuell.Grundpreis (Wert wird noch nicht ausgewertet)
+
+Sobald der Wert > 0 ist, wird dieser zur Berechnung der Stromkosten herangezogen.
+
+Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
   
 ### Getestete Geräte:
 - HM-ES-TX-WM
 - HM-ES-PMSw1-Pl-DN-R1
 - HMIP-PSM
 
-
 ## TODO
 
 - Preisänderung innerhalb des Jahres konfigurierbar machen
 - Grundpreis berechnen
-- Unterschiedliche Tarife für unterschiedliche Geräte
 
 ## Changelog
+
+### 1.0.6 (2018-03-05)
+* (hdering) Jedes Gerät kann nun seinen eigenen Arbeitspreis haben.
 
 ### 1.0.5 (2018-03-04)
 * (hdering) Quartalswechsel korrigiert
