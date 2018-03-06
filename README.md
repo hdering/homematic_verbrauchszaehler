@@ -29,8 +29,8 @@ Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der rea
 ---
 
 Jedes Gerät hat ab Version 1.0.6 in seinem Verzeichnis einen zusätzlichen Ordner "eigenerPreis", z.B.
-Strom.Küche.Kühlschrank.eigenerPreis.aktuell.Arbeitspreis
-Strom.Küche.Kühlschrank.eigenerPreis.aktuell.Grundpreis (Wert wird noch nicht ausgewertet)
+* Strom.Küche.Kühlschrank.*eigenerPreis*.aktuell.Arbeitspreis
+* Strom.Küche.Kühlschrank.*eigenerPreis*.aktuell.Grundpreis (Wert wird noch nicht ausgewertet)
 
 Sobald der Wert > 0 ist, wird dieser zur Berechnung der Stromkosten herangezogen.
 
