@@ -38,7 +38,7 @@ Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
 
 ---
 
-Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert in einer zusätzlichen Variable abgespeichert und ensprechend dorchrotiert.
+Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert in einer zusätzlichen Variable abgespeichert und entsprechend dorchrotiert.
 * Strom.Küche.Kühlschrank.Kosten.Tag (aktueller Wert)
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_1 (Wert vor einem Tag)
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_2 (Wert vor zwei Tagen)
@@ -53,7 +53,12 @@ Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert 
 * Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_3
 * Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_n
 
-
+Möchte man diese Funktion nicht haben, müssen die Variablen im "USER ANPASSEN" Bereich auf 0 gesetzt werden:
+var Tag_Anzahl_Werte_in_der_Vergangenheit       = 0;
+var Woche_Anzahl_Werte_in_der_Vergangenheit     = 0;
+var Monat_Anzahl_Werte_in_der_Vergangenheit     = 0;
+var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 0;
+var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 0;
 
 ---
   
