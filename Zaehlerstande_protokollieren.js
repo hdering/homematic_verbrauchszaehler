@@ -12,7 +12,8 @@ var logging = true;
 // Aktivieren der History Instanz
 var enable_history = false;
 
-// 
+// Speichern der Werte in zusätzlichen Objekten.
+// Wenn 0, dann deaktiviert
 var Tag_Anzahl_Werte_in_der_Vergangenheit       = 7;
 var Woche_Anzahl_Werte_in_der_Vergangenheit     = 4;
 var Monat_Anzahl_Werte_in_der_Vergangenheit     = 12;
