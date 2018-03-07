@@ -38,12 +38,13 @@ Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
 
 ---
 
-Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert in einer zusätzlichen Variable abgespeichert.
+Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert in einer zusätzlichen Variable abgespeichert und ensprechend dorchrotiert.
 * Strom.Küche.Kühlschrank.Kosten.Tag (aktueller Wert)
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_1 (Wert vor einem Tag)
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_2 (Wert vor zwei Tagen)
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_3
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_n
+
 
 
 * Strom.Küche.Kühlschrank.Verbrauch.Tag
@@ -52,6 +53,9 @@ Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert 
 * Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_3
 * Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_n
 
+
+
+---
   
 ### Getestete Geräte:
 - HM-ES-TX-WM
