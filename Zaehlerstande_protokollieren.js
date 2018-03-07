@@ -2,12 +2,22 @@
 
 //----------------------------------------------------------------------------//
 
-// Version: 1.0.6
+// Version: 1.0.7
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
 
 var logging = true;
+
+// Aktivieren der History Instanz
+var enable_history = false;
+
+// 
+var Tag_Anzahl_Werte_in_der_Vergangenheit       = 7;
+var Woche_Anzahl_Werte_in_der_Vergangenheit     = 4;
+var Monat_Anzahl_Werte_in_der_Vergangenheit     = 12;
+var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 4;
+var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 2;
 
 var grundpreis = 6.40;
 var arbeitspreis = 0.2627;
@@ -15,8 +25,12 @@ var arbeitspreis = 0.2627;
 // Preis ab 01.01.
 var neuer_arbeitspreis = 0.2612;
 
+// javascript Instanz
 var instance    = '0';
 var instanz     = 'javascript.' + instance + '.';
+
+// history Instanz
+var instance_history = 'history.0';
 
 // Pfad innerhalb der Instanz
 var pfad        = 'Strom.';
@@ -236,7 +250,7 @@ function run(obj) {
             if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val > 0) {
                 _preis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val;
                 
-                if (logging) console.log("Das Gerät:" + geraetename + " hat eigenen Strompreis: " + _preis);
+                if (logging) console.log("Das Gerät:" + geraetename + " hat seinen eigenen Strompreis: " + _preis);
             }
         }
 
@@ -244,12 +258,15 @@ function run(obj) {
        
         //------------------------------------------------------------------------//
         // Zurücksetzen der Werte
-       
+
+
         if(getState(pfad + geraetename + '.config.Tag').val) {
             
             if (logging) send_message("Tageswechsel wurde erkannt. (" + geraetename + ")");
             
             setState(pfad + geraetename + '.config.Tag', false);
+            
+            rotateVerbrauchUndKosten(geraetename, 'Tag', Tag_Anzahl_Werte_in_der_Vergangenheit);
            
             resetVerbrauchUndKosten(geraetename, 'Tag');
     
@@ -261,6 +278,8 @@ function run(obj) {
             if (logging) send_message("Wochenwechsel wurde erkannt. (" + geraetename + ")");
             
             setState(pfad + geraetename + '.config.Woche', false);
+            
+            rotateVerbrauchUndKosten(geraetename, 'Woche', Woche_Anzahl_Werte_in_der_Vergangenheit);
            
             resetVerbrauchUndKosten(geraetename, 'Woche');
             
@@ -272,6 +291,8 @@ function run(obj) {
             if (logging) send_message("Monatswechsel wurde erkannt. (" + geraetename + ")");
             
             setState(pfad + geraetename + '.config.Monat', false);
+            
+            rotateVerbrauchUndKosten(geraetename, 'Monat', Monat_Anzahl_Werte_in_der_Vergangenheit);
            
             resetVerbrauchUndKosten(geraetename, 'Monat');
     
@@ -284,6 +305,8 @@ function run(obj) {
             
             setState(pfad + geraetename + '.config.Quartal', false);
             
+            rotateVerbrauchUndKosten(geraetename, 'Quartal', Quartal_Anzahl_Werte_in_der_Vergangenheit);
+            
             resetVerbrauchUndKosten(geraetename, 'Quartal');
     
             schreibeZaehlerstand(geraetename, 'Quartal');
@@ -294,6 +317,8 @@ function run(obj) {
             if (logging) send_message("Jahreswechsel wurde erkannt. (" + geraetename + ")");
             
             setState(pfad + geraetename + '.config.Jahr', false);
+            
+            rotateVerbrauchUndKosten(geraetename, 'Jahr', Jahr_Anzahl_Werte_in_der_Vergangenheit);
            
             resetVerbrauchUndKosten(geraetename, 'Jahr');
     
@@ -412,9 +437,50 @@ function schreibeZaehlerstand(geraet, zeitraum) {
     setState(idZaehlerstand, parseFloat( (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand)) );  
 
     if (logging) log('Zählerstände für das Gerät ' + geraet + ' (' + zeitraum + ') in Objekten gespeichert');
-} 
+}
 
-function resetVerbrauchUndKosten(geraet, zeitraum) { 
+function rotateVerbrauchUndKosten(geraet, zeitraum, anzahl) {
+
+    // Verbrauch
+    if(anzahl > 0) {
+        
+        for(var i = anzahl; i >= 0; i--) {
+            
+            var j = i;
+            
+            j++;
+            
+            if(getObject(instanz + pfad + geraet + '.Verbrauch._' + zeitraum + '.' + zeitraum + '_' + j)) {
+                
+                if(i === 0)
+                    setState(instanz + pfad + geraet + '.Verbrauch._' + zeitraum + '.' + zeitraum + '_' + j, getState(instanz + pfad + geraet + '.Verbrauch.' + zeitraum).val);
+                else
+                    setState(instanz + pfad + geraet + '.Verbrauch._' + zeitraum + '.' + zeitraum + '_' + j, getState(instanz + pfad + geraet + '.Verbrauch._' + zeitraum + '.' + zeitraum + '_' + i).val);
+            }
+        }
+    }
+    
+    // Kosten
+    if(anzahl > 0) {
+        
+        for(var i = anzahl; i >= 0; i--) {
+            
+            var j = i;
+            
+            j++;
+            
+            if(getObject(instanz + pfad + geraet + '.Kosten._' + zeitraum + '.' + zeitraum + '_' + j)) {
+                
+                if(i === 0)
+                    setState(instanz + pfad + geraet + '.Kosten._' + zeitraum + '.' + zeitraum + '_' + j, getState(instanz + pfad + geraet + '.Kosten.' + zeitraum).val);
+                else
+                    setState(instanz + pfad + geraet + '.Kosten._' + zeitraum + '.' + zeitraum + '_' + j, getState(instanz + pfad + geraet + '.Kosten._' + zeitraum + '.' + zeitraum + '_' + i).val);
+            }
+        }
+    }
+}
+
+function resetVerbrauchUndKosten(geraet, zeitraum) {
     
     // Reset der Stromkosten für den übergebenen Zeitraum
     // Reset des Stromverbrauchs für den übergebenen Zeitraum 
@@ -463,6 +529,7 @@ function erstelleStates (geraet) {
     createState(pfad + geraet + '.Zaehlerstand.Quartal', 0, {name: 'Zählerstand Quartalsbeginn ('    + geraet + ')', type: 'number', unit:'kWh'});
     createState(pfad + geraet + '.Zaehlerstand.Jahr',    0, {name: 'Zählerstand Jahresbeginn ('      + geraet + ')', type: 'number', unit:'kWh'});
 
+    
     // Verbrauch 
     createState(pfad + geraet + '.Verbrauch.Tag',        0, {name: 'Verbrauch seit Tagesbeginn ('    + geraet + ')', type: 'number', unit:'kWh'});
     createState(pfad + geraet + '.Verbrauch.Woche',      0, {name: 'Verbrauch seit Wochenbeginn ('   + geraet + ')', type: 'number', unit:'kWh'});
@@ -477,41 +544,56 @@ function erstelleStates (geraet) {
     createState(pfad + geraet + '.Kosten.Quartal',       0, {name: 'Stromkosten Quartal ('           + geraet + ')', type: 'number', unit:'€'  });
     createState(pfad + geraet + '.Kosten.Jahr',          0, {name: 'Stromkosten Jahr ('              + geraet + ')', type: 'number', unit:'€'  });
     
-    // day, week, month, quartar, year change
-    createState(pfad + geraet + '.config.Tag', false, {
-        read: true,
-        write: true,
-        type: "boolean",
-        def: false
-    });
 
-    createState(pfad + geraet + '.config.Woche', false, {
-        read: true,
-        write: true,
-        type: "boolean",
-        def: false
-    });
+    // Speichern der Werte in zusätzlichen Variablen
+    if(Tag_Anzahl_Werte_in_der_Vergangenheit > 0) {
+        
+        for(var i = 1; i <= Tag_Anzahl_Werte_in_der_Vergangenheit; i++) {
+            createState(pfad + geraet + '.Verbrauch._Tag.Tag_' + i,             0, {name: 'Verbrauch vor ' + i + ' Tag(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Kosten._Tag.Tag_' + i,                0, {name: 'Stromkosten vor ' + i + ' Tag(en) ('  + geraet + ')', type: 'number', unit:'€'  });
+        }
+    }
     
-    createState(pfad + geraet + '.config.Monat', false, {
-        read: true,
-        write: true,
-        type: "boolean",
-        def: false
-    });
+    if(Woche_Anzahl_Werte_in_der_Vergangenheit > 0) {
+        
+        for(var i = 1; i <= Woche_Anzahl_Werte_in_der_Vergangenheit; i++) {
+            createState(pfad + geraet + '.Verbrauch._Woche.Woche_' + i,         0, {name: 'Verbrauch vor ' + i + ' Woche(n) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Kosten._Woche.Woche_' + i,            0, {name: 'Stromkosten vor ' + i + ' Woche(n) ('  + geraet + ')', type: 'number', unit:'€'  });
+        }
+    }
     
-    createState(pfad + geraet + '.config.Quartal', false, {
-        read: true,
-        write: true,
-        type: "boolean",
-        def: false
-    });
+    if(Monat_Anzahl_Werte_in_der_Vergangenheit > 0) {
+
+        for(var i = 1; i <= Monat_Anzahl_Werte_in_der_Vergangenheit; i++) {
+            createState(pfad + geraet + '.Verbrauch._Monat.Monat_' + i,         0, {name: 'Verbrauch vor ' + i + ' Monat(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Kosten._Monat.Monat_' + i,            0, {name: 'Stromkosten vor ' + i + ' Monat(en) ('  + geraet + ')', type: 'number', unit:'€'  });
+        }
+    }
     
-    createState(pfad + geraet + '.config.Jahr', false, {
-        read: true,
-        write: true,
-        type: "boolean",
-        def: false
-    });
+    if(Quartal_Anzahl_Werte_in_der_Vergangenheit > 0) {
+        
+        for(var i = 1; i <= Quartal_Anzahl_Werte_in_der_Vergangenheit; i++) {
+            createState(pfad + geraet + '.Verbrauch._Quartal.Quartal_' + i,     0, {name: 'Verbrauch vor ' + i + ' Quartal(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Kosten._Quartal.Quartal_' + i,        0, {name: 'Stromkosten vor ' + i + ' Quartal(en) ('  + geraet + ')', type: 'number', unit:'€'  });
+        }
+    }
+    
+    if(Jahr_Anzahl_Werte_in_der_Vergangenheit > 0) {
+
+        for(var i = 1; i <= Jahr_Anzahl_Werte_in_der_Vergangenheit; i++) {
+            createState(pfad + geraet + '.Verbrauch._Jahr.Jahr_' + i,           0, {name: 'Verbrauch vor ' + i + ' Jahr(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Kosten._Jahr.Jahr_' + i,              0, {name: 'Stromkosten vor ' + i + ' Jahr(en) ('  + geraet + ')', type: 'number', unit:'€'  });
+        }
+    }
+    
+    // day, week, month, quartar, year change
+    createState(pfad + geraet + '.config.Tag',      false, { read: true, write: true, type: "boolean", def: false });
+    createState(pfad + geraet + '.config.Woche',    false, { read: true, write: true, type: "boolean", def: false });
+
+
+    createState(pfad + geraet + '.config.Monat',    false, { read: true, write: true, type: "boolean", def: false });
+    createState(pfad + geraet + '.config.Quartal',  false, { read: true, write: true, type: "boolean", def: false });
+    createState(pfad + geraet + '.config.Jahr',     false, { read: true, write: true, type: "boolean", def: false });
 
     // Neustart von CCU oder Gerät erkannt
     createState(pfad + geraet + '.config.NeustartErkanntAlterWert', 0);
@@ -519,8 +601,68 @@ function erstelleStates (geraet) {
     // Gerät hat eigenen Strompreis
     createState(pfad + geraet + '.eigenerPreis.aktuell.Arbeitspreis', 0);
     createState(pfad + geraet + '.eigenerPreis.aktuell.Grundpreis', 0);
+    
+    if(enable_history) {
+        enableHistory(geraet, 'Tag');
+        enableHistory(geraet, 'Woche');
+        enableHistory(geraet, 'Monat');
+        enableHistory(geraet, 'Quartal');
+        enableHistory(geraet, 'Jahr');
+    }
 
     if (logging) log('States in der Instanz ' + instanz + pfad + ' erstellt');   
+}
+
+
+function enableHistory(geraet, zeitraum) {
+
+    if(instance_history !== '') {
+        
+        sendTo(instance_history, 'enableHistory', {
+            id: instanz + pfad + geraet + '.Kosten.' + zeitraum,
+            options: {
+                changesOnly:  true,
+                debounce:     0,
+                retention:    31536000,
+                maxLength:    3,
+                changesMinDelta: 0.5
+            }
+        }, function (result) {
+            if (result.error) {
+                if (logging) log("Fehler beim Aktivieren von History: " + result.error);
+            }
+        });
+        
+        sendTo(instance_history, 'enableHistory', {
+            id: instanz + pfad + geraet + '.Verbrauch.' + zeitraum,
+            options: {
+                changesOnly:  true,
+                debounce:     0,
+                retention:    31536000,
+                maxLength:    3,
+                changesMinDelta: 0.5
+            }
+        }, function (result) {
+            if (result.error) {
+                if (logging) log("Fehler beim Aktivieren von History: " + result.error);
+            }
+        });
+        
+        sendTo(instance_history, 'enableHistory', {
+            id: instanz + pfad + geraet + '.Zaehlerstand.' + zeitraum,
+            options: {
+                changesOnly:  true,
+                debounce:     0,
+                retention:    31536000,
+                maxLength:    3,
+                changesMinDelta: 0.5
+            }
+        }, function (result) {
+            if (result.error) {
+                if (logging) log("Fehler beim Aktivieren von History: " + result.error);
+            }
+        });
+    }
 }
 
 //----------------------------------------------------------------------------//
