@@ -54,11 +54,11 @@ Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert 
 * Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_n
 
 Möchte man diese Funktion nicht haben, müssen die Variablen im "USER ANPASSEN" Bereich auf 0 gesetzt werden:
-var Tag_Anzahl_Werte_in_der_Vergangenheit       = 0;
-var Woche_Anzahl_Werte_in_der_Vergangenheit     = 0;
-var Monat_Anzahl_Werte_in_der_Vergangenheit     = 0;
-var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 0;
-var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 0;
+- var Tag_Anzahl_Werte_in_der_Vergangenheit       = 0;
+- var Woche_Anzahl_Werte_in_der_Vergangenheit     = 0;
+- var Monat_Anzahl_Werte_in_der_Vergangenheit     = 0;
+- var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 0;
+- var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 0;
 
 ---
   
