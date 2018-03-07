@@ -35,7 +35,24 @@ Jedes Gerät hat ab Version 1.0.6 in seinem Verzeichnis einen zusätzlichen Ordn
 Sobald der Wert > 0 ist, wird dieser zur Berechnung der Stromkosten herangezogen.
 
 Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
-  
+
+---
+
+Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert in einer zusätzlichen Variable abgespeichert.
+* Strom.Küche.Kühlschrank.Kosten.Tag (aktueller Wert)
+* Strom.Küche.Kühlschrank.Kosten._Tag.Tag_1 (Wert vor einem Tag)
+* Strom.Küche.Kühlschrank.Kosten._Tag.Tag_2 (Wert vor zwei Tagen)
+* Strom.Küche.Kühlschrank.Kosten._Tag.Tag_3
+* Strom.Küche.Kühlschrank.Kosten._Tag.Tag_n
+
+
+* Strom.Küche.Kühlschrank.Verbrauch.Tag
+* Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_1
+* Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_2
+* Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_3
+* Strom.Küche.Kühlschrank.Verbrauch._Tag.Tag_n
+
+  
 ### Getestete Geräte:
 - HM-ES-TX-WM
 - HM-ES-PMSw1-Pl-DN-R1
