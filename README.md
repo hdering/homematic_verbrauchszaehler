@@ -48,6 +48,10 @@ Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
 
 ## Changelog
 
+### 1.0.7 (2018-03-07)
+* (hdering) Wenn eine History Instanz verfügbar ist, kann man im Skript die Instanz angeben. Es wird dann bei allen Objekten die History aktiviert.
+* (hdering) Bei jedem Tages/Wochen/Monats/...-wechsel wird nun der aktuelle Verbrauch/die aktuellen Kosten in einer zusätzlichen Variable abgespeichert
+
 ### 1.0.6 (2018-03-05)
 * (hdering) Jedes Gerät kann nun seinen eigenen Arbeitspreis haben.
 
