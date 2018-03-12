@@ -98,6 +98,14 @@ var eigeneDatenpunkte = [
 
 ## Changelog
 
+### 1.1.0 (2018-03-12)
+* (hdering) Arbeitspreis + Grundpreis werden nicht über das Skript gesetzt.
+* (hdering) Neuer Arbeitspreis + Grundpreis können innerhalb des Jahres angegeben werden.
+* (hdering) Geräte können ihren eigenen Strompreis haben.
+* (hdering) Geräte mit eigenem Strompreis haben ebenfalls die Funktion Arbeitspreis + Grundpreis innerhalb des Jahres zu ändern.
+* (hdering) Eigene Datenpunkte angeben
+* (hdering) Fehler in Funktion entferneDatenpunkt behoben
+
 ### 1.0.7 (2018-03-07)
 * (hdering) Wenn eine History Instanz verfügbar ist, kann man im Skript die Instanz angeben. Es wird dann bei allen Objekten die History aktiviert.
 * (hdering) Bei jedem Tages/Wochen/Monats/...-wechsel wird nun der aktuelle Verbrauch/die aktuellen Kosten in einer zusätzlichen Variable abgespeichert
