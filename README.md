@@ -12,9 +12,6 @@ Zählerstände werden gespeichert jeweils
 * jedes Neujahr
 wenn ein neuer Wert reinkommt.
 
-Der Strompreis wird in die Variable "Strompreis_aktuell" geschrieben. 
-Änderungen des Strompreispreises müssen rechtzeitig per Cronjob programmiert werden.
-
 Die Stromkosten (Verbrauch * Preis) werden ebenso
 * jeden Tag
 * jede Woche Montag
@@ -22,21 +19,7 @@ Die Stromkosten (Verbrauch * Preis) werden ebenso
 * jeden Quartalsersten
 * jedes Neujahr
 
-genullt und bis dahin durch die Berechnung (der Differenz des aktuellen Zählerstandes - Zählerstand Beginn des Zeitraums) * Strompreis ermittelt.
-
-Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der realen Zählerstände der Geräte.
-
----
-
-Jedes Gerät hat ab Version 1.0.6 in seinem Verzeichnis einen zusätzlichen Ordner "eigenerPreis", z.B.
-* Strom.Küche.Kühlschrank.*eigenerPreis*.aktuell.Arbeitspreis
-* Strom.Küche.Kühlschrank.*eigenerPreis*.aktuell.Grundpreis (Wert wird noch nicht ausgewertet)
-
-Sobald der Wert > 0 ist, wird dieser zur Berechnung der Stromkosten herangezogen.
-
-Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
-
----
+genullt und bis dahin durch die Berechnung (der Differenz des aktuellen Zählerstandes - Zählerstand Beginn des Zeitraums) * Strompreis ermittelt. 
 
 Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert in einer zusätzlichen Variable abgespeichert und entsprechend dorchrotiert.
 * Strom.Küche.Kühlschrank.Kosten.Tag (aktueller Wert)
@@ -44,7 +27,6 @@ Ab Version 1.0.7 wird bei einem Tages/Wochen/Monats/...-wechsel der "alte" Wert 
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_2 (Wert vor zwei Tagen)
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_3
 * Strom.Küche.Kühlschrank.Kosten._Tag.Tag_n
-
 
 
 * Strom.Küche.Kühlschrank.Verbrauch.Tag
@@ -60,6 +42,43 @@ Möchte man diese Funktion nicht haben, müssen die Variablen im "USER ANPASSUNG
 - var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 0;
 - var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 0;
 
+---
+
+Der kumulierte Zählerstand berücksichtigt evtl. Resets und Überläufe der realen Zählerstände der Geräte.
+
+---
+
+Jedes Gerät hat ab Version 1.0.6 in seinem Verzeichnis einen zusätzlichen Ordner "eigenerPreis", z.B.
+* Strom.Küche.Kühlschrank.*eigenerPreis*.aktuell.Arbeitspreis
+* Strom.Küche.Kühlschrank.*eigenerPreis*.aktuell.Grundpreis (Wert wird noch nicht ausgewertet)
+
+Sobald der Wert > 0 ist, wird dieser zur Berechnung der Stromkosten herangezogen.
+
+Somit kann jedes beliebige Gerät seinen eigenen Arbeitspreis haben.
+
+---
+
+Ab Version 1.1.0 werden Arbeitspreis und Grundpreis nicht mehr über das Skript gesetzt. Bei der ersten Verwendung des Skripts werden die Datenpunkte zwar erstellt, aber mit 0 befüllt. Das Skript gibt auch einen Fehler aus. (Skripte die bereits in Verwendung sind, sollten davon nicht betroffen sein, da die beiden Datenpunkte (Arbeitspreis + Grundpreis) bereits befüllt sind.)
+
+Ein neuer Arbeitspreis + Grundpreis können innerhalb des Jahres angegeben werden. Auch dies funktioniert nicht mehr über das Skript, sondern über die erstellten Datenpunkte. Zusätzlich muss ein Datum angeben werden, ab wann der neue Preis genommen werden soll
+* Preis.neu.Arbeitspreis
+* Preis.neu.Grundpreis
+* Preis.neu.Datum
+            
+Geräte können ihren eigenen Strompreis haben. Diese Funktion ist standardmäßig deaktiviert. Kann aber über die Variable "enable_unterschiedlichePreise" aktiviert werden.
+Geräte mit eigenem Strompreis haben ebenfalls die Funktion Arbeitspreis + Grundpreis innerhalb des Jahres zu ändern.
+
+Es ist möglich eigene Datenpunkte anzugeben, die nicht über die Selectoren von ioBroker gefunden werden. Beispiel:
+```js
+var eigeneDatenpunkte = [
+    // Beispiel:
+    // ['Datenpunkt', 'Aliasname'],
+    
+    // [ 'hm-rpc.2.NEQ0861663.1.ENERGY_COUNTER', 'Stromzaehler:1.ENERGY_COUNTER' ],
+    // [ 'javascript.1.MeinePower', 'MeinSonoff' ],
+    // [ 'javascript.1.MeinePower2', 'Sonoff.MeinZweiterSonoff' ],
+];
+```
 ---
   
 ### Getestete Geräte:
