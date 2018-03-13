@@ -1,7 +1,7 @@
 # homematic_stromverbrauch_protokollieren
 
 ### Wiki
-https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki
+https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
 
 ### Getestete Geräte:
 - HM-ES-TX-WM
