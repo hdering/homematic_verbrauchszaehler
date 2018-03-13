@@ -1,12 +1,14 @@
 # homematic_stromverbrauch_protokollieren
 
+### Wiki
+https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki
+
 ### Getestete Geräte:
 - HM-ES-TX-WM
 - HM-ES-PMSw1-Pl-DN-R1
 - HMIP-PSM
 
 ## TODO
-
 - Preisänderung innerhalb des Jahres konfigurierbar machen
 - Grundpreis berechnen
 
