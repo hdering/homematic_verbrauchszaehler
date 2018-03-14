@@ -761,13 +761,13 @@ function pruefePreisaenderung(geraet) {
         
          // Default Arbeitspreis ändern
 
-        _Datum                          = instanz + pfad + '.Preis.neu.Datum';
-        _PreisaenderungDurchgefuehrt    = instanz + pfad + '.Preis.neu.PreisaenderungDurchgefuehrt';
+        _Datum                          = instanz + pfad + 'Preis.neu.Datum';
+        _PreisaenderungDurchgefuehrt    = instanz + pfad + 'Preis.neu.PreisaenderungDurchgefuehrt';
         
-        _Arbeitspreis       = instanz + pfad + '.Preis.aktuell.Arbeitspreis';
-        _Grundpreis         = instanz + pfad + '.Preis.aktuell.Grundpreis';
-        _ArbeitspreisNeu    = instanz + pfad + '.Preis.neu.Arbeitspreis';
-        _GrundpreisNeu      = instanz + pfad + '.Preis.neu.Grundpreis';
+        _Arbeitspreis       = instanz + pfad + 'Preis.aktuell.Arbeitspreis';
+        _Grundpreis         = instanz + pfad + 'Preis.aktuell.Grundpreis';
+        _ArbeitspreisNeu    = instanz + pfad + 'Preis.neu.Arbeitspreis';
+        _GrundpreisNeu      = instanz + pfad + 'Preis.neu.Grundpreis';
         
     } else {
 
