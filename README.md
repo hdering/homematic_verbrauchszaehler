@@ -9,7 +9,8 @@ https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
 - HMIP-PSM
 
 ## TODO
-- Preisänderung innerhalb des Jahres konfigurierbar machen
+- Zaehlerstand_letzte_Ablesung und Zaehlerstand_jetzt angeben können
+- eigeneDatenpunkte so flexibel angeben können, damit Gasverbrauch ebenfalls geloggt werden kann
 - Grundpreis berechnen
 
 ## Changelog
