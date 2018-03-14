@@ -15,6 +15,9 @@ https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
 
 ## Changelog
 
+### 1.1.1 (2018-03-14)
+* (hdering) Fehler beim Prüfen einer Preisänderung
+
 ### 1.1.0 (2018-03-12)
 * (hdering) Arbeitspreis + Grundpreis werden nicht über das Skript gesetzt.
 * (hdering) Neuer Arbeitspreis + Grundpreis können innerhalb des Jahres angegeben werden.
