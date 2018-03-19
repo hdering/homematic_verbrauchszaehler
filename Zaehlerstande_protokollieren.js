@@ -134,7 +134,16 @@ function setRecognizedChange(type) {
         var geraetename = parseObjects(id);
 
         setState(pfad + geraetename + '.config.' + type, true);
-    });    
+    });
+    
+    if (eigeneDatenpunkte.length > 0) {
+
+        for(var i = 0; i < eigeneDatenpunkte.length; i++) {
+            var alias = eigeneDatenpunkte[i][1];
+            
+            setState(pfad + alias + '.config.' + type, true);
+        }
+    }
 }
 
 //----------------------------------------------------------------------------//
@@ -307,7 +316,7 @@ function run(obj, alias) {
                             + 'Der Stromzähler (' + geraetename + ') ist übergelaufen, gelöscht oder neugestartet worden (ggf. Stromausfall).\n'
                             + 'newState:' + obj.newState.val + '\n' 
                             + 'oldState:' + obj.oldState.val + '\n'
-                            + 'differenz:' + differenz + '\n'
+                            + 'difference:' + difference + '\n'
                             + 'idKumuliert:' + getState(idKumuliert).val;
         
                 send_message(message2);
