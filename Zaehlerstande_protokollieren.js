@@ -3,7 +3,7 @@
 
 //----------------------------------------------------------------------------//
 
-// Version: 1.1.3
+// Version: 1.2.0
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -34,6 +34,8 @@ var instanz     = 'javascript.' + instance + '.';
 // Pfad innerhalb der Instanz
 var pfad        = 'Strom.';
 
+var default_unit = 'Wh';
+
 // Diese Teile werden aus den Gerätenamen entfernt
 var blacklist   = [':1', ':2', ':3', ':4', ':5', ':6', ':7', ':8'];
 
@@ -43,7 +45,7 @@ var AnzahlKommastellenZaehlerstand = 3;
 
 var eigeneDatenpunkte = [
     // Beispiel:
-    // ['Datenpunkt', 'Aliasname'],
+    // ['Datenpunkt', 'Aliasname', 'Einheit' ],
     
     // [ 'hm-rpc.2.NEQ0861663.1.ENERGY_COUNTER', 'Stromzaehler:1.ENERGY_COUNTER' ],
     // [ 'javascript.1.MeinePower', 'MeinSonoff' ],
@@ -57,7 +59,7 @@ function send_message(text) {
     
     //console.log(text);
     
-    sendTelegramToHermann(text);
+    //sendTelegram(text);
 }
 
 // ++++ ENDE USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -65,7 +67,7 @@ function send_message(text) {
 
 createState(pfad + 'Preis.aktuell.Arbeitspreis', {
     name: 'Strompreis - aktueller Arbeitspreis (brutto)',
-    unit: '€/kWh',
+    unit: '€/k' + default_unit,
     type: 'number',
     def:  0,
     min:  0
@@ -83,7 +85,7 @@ createState(pfad + 'Preis.aktuell.Grundpreis',  {
 
 createState(pfad + 'Preis.neu.Arbeitspreis', {
     name: 'Strompreis - neuer Arbeitspreis ab Datum (brutto)',
-    unit: '€/kWh',
+    unit: '€/k' + default_unit,
     type: 'number',
     def:  0,
     min:  0
@@ -123,17 +125,25 @@ function parseObjects(id) {
     return entferneDatenpunkt(obj.common.name);
 }
 
-function setRecognizedChange(type) {
+function setRecognizedChange(type, anzahl) {
     cacheSelectorStateMeter.each(function (id, i) {
         var geraetename = parseObjects(id);
+
+        rotateVerbrauchUndKosten(geraetename, type, anzahl);
         
-        setState(pfad + geraetename + '.config.' + type, true);
+        resetVerbrauchUndKosten(geraetename, type);
+        
+        schreibeZaehlerstand(geraetename, type);
     });
 
     cacheSelectorStateEnergyCounter.each(function (id, i) {
         var geraetename = parseObjects(id);
 
-        setState(pfad + geraetename + '.config.' + type, true);
+        rotateVerbrauchUndKosten(geraetename, type, anzahl);
+        
+        resetVerbrauchUndKosten(geraetename, type);
+        
+        schreibeZaehlerstand(geraetename, type);
     });
     
     if (eigeneDatenpunkte.length > 0) {
@@ -141,7 +151,11 @@ function setRecognizedChange(type) {
         for(var i = 0; i < eigeneDatenpunkte.length; i++) {
             var alias = eigeneDatenpunkte[i][1];
             
-            setState(pfad + alias + '.config.' + type, true);
+            rotateVerbrauchUndKosten(alias, type, anzahl);
+            
+            resetVerbrauchUndKosten(alias, type);
+            
+            schreibeZaehlerstand(alias, type);
         }
     }
 }
@@ -150,27 +164,27 @@ function setRecognizedChange(type) {
 
 // Tageswechsel
 schedule("0 0 * * *", function() {
-    setRecognizedChange('Tag');
+    setRecognizedChange('Tag', Tag_Anzahl_Werte_in_der_Vergangenheit);
 });
 
 // Wochenwechsel
 schedule("0 0 * * 1", function() {
-    setRecognizedChange('Woche');
+    setRecognizedChange('Woche', Woche_Anzahl_Werte_in_der_Vergangenheit);
 });
 
 // Monatswechsel
 schedule("0 0 1 * *", function() {
-    setRecognizedChange('Monat');
+    setRecognizedChange('Monat', Monat_Anzahl_Werte_in_der_Vergangenheit);
 });
 
 // Quartalswechsel
 schedule("0 0 1 */3 *", function() {
-    setRecognizedChange('Quartal');
+    setRecognizedChange('Quartal', Quartal_Anzahl_Werte_in_der_Vergangenheit);
 });
 
 // Jahreswechsel
 schedule("0 0 1 1 *", function() {
-    setRecognizedChange('Jahr');
+    setRecognizedChange('Jahr', Jahr_Anzahl_Werte_in_der_Vergangenheit);
 });
 
 //----------------------------------------------------------------------------//
@@ -184,15 +198,16 @@ function pruefeEigeneDatenpunkte() {
             
             var datenpunkt = eigeneDatenpunkte[i][0];
             var alias = eigeneDatenpunkte[i][1];
+            var einheit = eigeneDatenpunkte[i][2];
             
-            if(logging) console.log("Alias:" + alias + " Datenpunkt:" + datenpunkt);
+            if(logging) console.log("Alias:" + alias + " Datenpunkt:" + datenpunkt + " Einheit:" + einheit);
 
             on(datenpunkt, function(obj) {
 
                 for(var i = 0; i < eigeneDatenpunkte.length; i++) {
                     
                     if(eigeneDatenpunkte[i][0] === obj.id)    
-                        run(obj, eigeneDatenpunkte[i][1]);
+                        run(obj, eigeneDatenpunkte[i][1], eigeneDatenpunkte[i][2]);
                 }
             });
         }
@@ -204,126 +219,132 @@ pruefeEigeneDatenpunkte();
 //----------------------------------------------------------------------------//
 
 // Einlesen der aktuellen Daten vom Zähler
-function run(obj, alias) {
+function run(obj, alias, einheit) {
     
-    if(getState(instanz + pfad + 'Preis.aktuell.Arbeitspreis').val === 0) {
-        
-        var message0 = 'Achtung!' + '.\n'
-                    + 'Es wurde noch kein Arbeitspreis angegeben.' + '\n' 
-                    + 'Ohne Arbeitspreis kann das Skript keine Berechnungen durchführen.' + '\n'
-                    + 'Diese Information ist zwingend notwendig!';
-        
-        log(message0, 'error');
-        
-    } else {
+    if (logging) {   
+        log('-------- Strommesser ---------');
+        log('RegExp-Funktion ausgelöst');
+        log('Gewerk:       ' + obj.role);   // undefined
+        log('Beschreibung: ' + obj.desc);   // undefined
+        log('id:           ' + obj.id);
+        log('Name:         ' + obj.common.name);   // Waschmaschine Küche:2.ENERGY_COUNTER
+        log('channel ID:   ' + obj.channelId);     // hm-rpc.0.MEQ0170864.2
+        log('channel Name: ' + obj.channelName);   // Waschmaschine Küche:2
+        log('device ID:    ' + obj.deviceId);      // hm-rpc.0.MEQ0170864
+        log('device name:  ' + obj.deviceName);    // Küche Waschmaschine
+        log('neuer Wert:   ' + obj.newState.val);  // 16499.699982
+        log('alter Wert:   ' + obj.oldState.val);  // 16499.699982
+        log('Einheit:      ' + obj.common.unit);   // Wh
+    }
 
-        if (logging) {   
-            log('-------- Strommesser ---------');
-            log('RegExp-Funktion ausgelöst');
-            log('Gewerk:       ' + obj.role);   // undefined
-            log('Beschreibung: ' + obj.desc);   // undefined
-            log('id:           ' + obj.id);
-            log('Name:         ' + obj.common.name);   // Waschmaschine Küche:2.ENERGY_COUNTER
-            log('channel ID:   ' + obj.channelId);     // hm-rpc.0.MEQ0170864.2
-            log('channel Name: ' + obj.channelName);   // Waschmaschine Küche:2
-            log('device ID:    ' + obj.deviceId);      // hm-rpc.0.MEQ0170864
-            log('device name:  ' + obj.deviceName);    // Küche Waschmaschine
-            log('neuer Wert:   ' + obj.newState.val);  // 16499.699982
-            log('alter Wert:   ' + obj.oldState.val);  // 16499.699982
-            log('Einheit:      ' + obj.common.unit);   // Wh
+    // Gerätenamen erstellen
+    if (logging) log('vor der Aufbereitung: ' + obj.common.name); 
+    
+    var geraetename = entferneDatenpunkt(obj.common.name);
+
+    if(typeof alias !== "undefined")  {
+        if(logging) console.log("Es wird der Aliasname gesetzt:" + alias);
+        
+        geraetename = alias;
+    }
+    
+    if (logging) log('Nach der Aufbereitung: ' + geraetename); 
+    
+    if(typeof geraetename !== "undefined") {
+        
+        //------------------------------------------------------------------------//
+        
+        _unit = default_unit;
+        
+        // States erstellen (CreateStates für dieses Gerät)
+        if(typeof einheit !== "undefined")  {
+            _unit = einheit;
         }
-
-        // Gerätenamen erstellen
-        if (logging) log('vor der Aufbereitung: ' + obj.common.name); 
         
-        var geraetename = entferneDatenpunkt(obj.common.name);
-
-        if(typeof alias !== "undefined")  {
-            if(logging) console.log("Es wird der Aliasname gesetzt:" + alias);
-            
-            geraetename = alias;
-        }
+        erstelleStates(geraetename, _unit);
         
-        if (logging) log('Nach der Aufbereitung: ' + geraetename); 
+        //------------------------------------------------------------------------//
         
-        if(typeof geraetename !== "undefined") {
-            
-            //------------------------------------------------------------------------//
-            
-            // States erstellen (CreateStates für dieses Gerät)
-            erstelleStates(geraetename);
-            
-            //------------------------------------------------------------------------//
-            
-            // Schreiben der neuen Werte
+        // Schreiben der neuen Werte
+    
+        var idKumuliert =  instanz + pfad + geraetename + '.Zaehlerstand.kumuliert';
         
-            var idKumuliert =  instanz + pfad + geraetename + '.Zaehlerstand.kumuliert';
-            
-            var NeustartEventuellErkannt = false;
-            var NeustartSicherErkannt = false;
-            
-            var oldState = obj.oldState.val;
-            var newState = obj.newState.val;
-            var difference = newState - oldState;
+        var NeustartEventuellErkannt = false;
+        var NeustartSicherErkannt = false;
         
-            if(difference > 0) {
+        var oldState = obj.oldState.val;
+        var newState = obj.newState.val;
+        var difference = newState - oldState;
+    
+        if(difference > 0) {
+            
+            if(oldState !== 0) {
+    
+                // Kumulierten Wert mit Ist-Wert (inkl. Backup) synchronisieren
+                var newValueKumuliert = getState(idKumuliert).val + difference;
                 
-                if(oldState !== 0) {
-        
-                    // Kumulierten Wert mit Ist-Wert (inkl. Backup) synchronisieren
-                    var newValueKumuliert = getState(idKumuliert).val + difference;
-                    
-                    newValueKumuliert = parseFloat(newValueKumuliert);
-        
-                    setState(idKumuliert, newValueKumuliert);
-                    
-                } else {
-                    
-                    if(newState < getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val) {
-        
-                        NeustartSicherErkannt = true;
-                    }
-                }
+                newValueKumuliert = parseFloat(newValueKumuliert);
+    
+                setState(idKumuliert, newValueKumuliert);
                 
             } else {
                 
-                // Fall 2 oder 3
-                // Irgendetwas läuft außerplanmäßig. Wert wird sicherheitshalber gespeichert und nächster Lauf abgewartet
-                NeustartEventuellErkannt = true;
-                
-                setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', obj.oldState.val);
-            }
-            
-            if(NeustartEventuellErkannt) {
-                
-                if(logging) {
-                    var message =  geraetename + '\n'
-                                    + 'Entweder die CCU oder Stromzähler wurden neugestartet/zurückgesetzt.\n'
-                                    + 'Dieser Wert wird einmal ignoriert und auf den nächsten Wert gewartet.';
-                
-                    send_message(message);
+                if(newState < getState(pfad + geraetename + '.config.NeustartErkanntAlterWert').val) {
+    
+                    NeustartSicherErkannt = true;
                 }
             }
             
-            if(NeustartSicherErkannt) {
-        
-                // zurücksetzen der Variable
-                setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', 0);
-                
-                //----------------------------------------------------------------//
-        
-                var message2 = geraetename + '\n'
-                            + 'Der Stromzähler (' + geraetename + ') ist übergelaufen, gelöscht oder neugestartet worden (ggf. Stromausfall).\n'
-                            + 'newState:' + obj.newState.val + '\n' 
-                            + 'oldState:' + obj.oldState.val + '\n'
-                            + 'difference:' + difference + '\n'
-                            + 'idKumuliert:' + getState(idKumuliert).val;
-        
-                send_message(message2);
-            }
+        } else {
             
-            //--------------------------------------------------------------------//
+            // Fall 2 oder 3
+            // Irgendetwas läuft außerplanmäßig. Wert wird sicherheitshalber gespeichert und nächster Lauf abgewartet
+            NeustartEventuellErkannt = true;
+            
+            setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', obj.oldState.val);
+        }
+        
+        if(NeustartEventuellErkannt) {
+            
+            if(logging) {
+                var message =  geraetename + '\n'
+                                + 'Entweder die CCU oder Stromzähler wurden neugestartet/zurückgesetzt.\n'
+                                + 'Dieser Wert wird einmal ignoriert und auf den nächsten Wert gewartet.';
+            
+                send_message(message);
+            }
+        }
+        
+        if(NeustartSicherErkannt) {
     
+            // zurücksetzen der Variable
+            setState(pfad + geraetename + '.config.NeustartErkanntAlterWert', 0);
+            
+            //----------------------------------------------------------------//
+    
+            var message2 = geraetename + '\n'
+                        + 'Der Stromzähler (' + geraetename + ') ist übergelaufen, gelöscht oder neugestartet worden (ggf. Stromausfall).\n'
+                        + 'newState:' + obj.newState.val + '\n' 
+                        + 'oldState:' + obj.oldState.val + '\n'
+                        + 'differenz:' + difference + '\n'
+                        + 'idKumuliert:' + getState(idKumuliert).val;
+    
+            send_message(message2);
+        }
+        
+        //--------------------------------------------------------------------//
+        
+        if(getState(instanz + pfad + 'Preis.aktuell.Arbeitspreis').val === 0) {
+        
+            var message0 = 'Achtung!' + '.\n'
+                        + 'Es wurde noch kein Arbeitspreis angegeben.' + '\n' 
+                        + 'Ohne Arbeitspreis kann das Skript keine Berechnungen durchführen.' + '\n'
+                        + 'Diese Information ist zwingend notwendig!';
+            
+            log(message0, 'error');
+        
+        } else {
+
             pruefePreisaenderung();
             
             if(enable_unterschiedlichePreise)
@@ -346,86 +367,16 @@ function run(obj, alias) {
             }
     
             berechneVerbrauchUndKosten(geraetename, _zaehler, _preis); // in kWh
-           
-            //--------------------------------------------------------------------//
-            // Zurücksetzen der Werte
-    
-            if(getState(pfad + geraetename + '.config.Tag').val) {
-                
-                if (logging) send_message("Tageswechsel wurde erkannt. (" + geraetename + ")");
-                
-                setState(pfad + geraetename + '.config.Tag', false);
-                
-                rotateVerbrauchUndKosten(geraetename, 'Tag', Tag_Anzahl_Werte_in_der_Vergangenheit);
-               
-                resetVerbrauchUndKosten(geraetename, 'Tag');
-        
-                schreibeZaehlerstand(geraetename, 'Tag');
-            }
-            
-            if(getState(pfad + geraetename + '.config.Woche').val) {
-                
-                if (logging) send_message("Wochenwechsel wurde erkannt. (" + geraetename + ")");
-                
-                setState(pfad + geraetename + '.config.Woche', false);
-                
-                rotateVerbrauchUndKosten(geraetename, 'Woche', Woche_Anzahl_Werte_in_der_Vergangenheit);
-               
-                resetVerbrauchUndKosten(geraetename, 'Woche');
-                
-                schreibeZaehlerstand(geraetename, 'Woche');
-            }
-            
-            if(getState(pfad + geraetename + '.config.Monat').val) {
-                
-                if (logging) send_message("Monatswechsel wurde erkannt. (" + geraetename + ")");
-                
-                setState(pfad + geraetename + '.config.Monat', false);
-                
-                rotateVerbrauchUndKosten(geraetename, 'Monat', Monat_Anzahl_Werte_in_der_Vergangenheit);
-               
-                resetVerbrauchUndKosten(geraetename, 'Monat');
-        
-                schreibeZaehlerstand(geraetename, 'Monat');
-            }
-            
-            if(getState(pfad + geraetename + '.config.Quartal').val) {
-                
-                if (logging) send_message("Quartalswechsel wurde erkannt. (" + geraetename + ")");
-                
-                setState(pfad + geraetename + '.config.Quartal', false);
-                
-                rotateVerbrauchUndKosten(geraetename, 'Quartal', Quartal_Anzahl_Werte_in_der_Vergangenheit);
-                
-                resetVerbrauchUndKosten(geraetename, 'Quartal');
-        
-                schreibeZaehlerstand(geraetename, 'Quartal');
-            }
-            
-            if(getState(pfad + geraetename + '.config.Jahr').val) {
-                
-                if (logging) send_message("Jahreswechsel wurde erkannt. (" + geraetename + ")");
-                
-                setState(pfad + geraetename + '.config.Jahr', false);
-                
-                rotateVerbrauchUndKosten(geraetename, 'Jahr', Jahr_Anzahl_Werte_in_der_Vergangenheit);
-               
-                resetVerbrauchUndKosten(geraetename, 'Jahr');
-        
-                schreibeZaehlerstand(geraetename, 'Jahr');
-            }
-        
-            //--------------------------------------------------------------------//
-            
-            if (logging) log('------------ ENDE ------------');
-            
-        } else {
-            
-            var message3 = 'Fehler beim Erstellen des Gerätenamens:\n'
-                        + 'obj.common.name: ' + obj.common.name;
-            
-            send_message(message3);
         }
+
+        if (logging) log('------------ ENDE ------------');
+        
+    } else {
+        
+        var message3 = 'Fehler beim Erstellen des Gerätenamens:\n'
+                    + 'obj.common.name: ' + obj.common.name;
+        
+        send_message(message3);
     }
 }
 
@@ -606,24 +557,24 @@ function berechneVerbrauchUndKosten(geraet, zaehler, preis) {
     if (logging) log('Stromverbrauch und -kosten (' + geraet + ') aktualisiert');
 }
 
-function erstelleStates (geraet) {
+function erstelleStates (geraet, _unit) {
     
     // Kumulierter Zählerstand (wird nie kleiner)
-    createState(pfad + geraet + '.Zaehlerstand.kumuliert', 0, {name: 'Kumulierter Zählerstand (' + geraet + ')', type: 'number', unit:'Wh'});
+    createState(pfad + geraet + '.Zaehlerstand.kumuliert', 0, {name: 'Kumulierter Zählerstand (' + geraet + ')', type: 'number', unit: _unit});
             
     // Zählerstand
-    createState(pfad + geraet + '.Zaehlerstand.Tag',     0, {name: 'Zählerstand Tagesbeginn ('       + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Zaehlerstand.Woche',   0, {name: 'Zählerstand Wochenbeginn ('      + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Zaehlerstand.Monat',   0, {name: 'Zählerstand Monatsbeginn ('      + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Zaehlerstand.Quartal', 0, {name: 'Zählerstand Quartalsbeginn ('    + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Zaehlerstand.Jahr',    0, {name: 'Zählerstand Jahresbeginn ('      + geraet + ')', type: 'number', unit:'kWh'});
+    createState(pfad + geraet + '.Zaehlerstand.Tag',     0, {name: 'Zählerstand Tagesbeginn ('       + geraet + ')', type: 'number', unit: 'k' + _unit });
+    createState(pfad + geraet + '.Zaehlerstand.Woche',   0, {name: 'Zählerstand Wochenbeginn ('      + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Zaehlerstand.Monat',   0, {name: 'Zählerstand Monatsbeginn ('      + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Zaehlerstand.Quartal', 0, {name: 'Zählerstand Quartalsbeginn ('    + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Zaehlerstand.Jahr',    0, {name: 'Zählerstand Jahresbeginn ('      + geraet + ')', type: 'number', unit: _unit });
     
     // Verbrauch 
-    createState(pfad + geraet + '.Verbrauch.Tag',        0, {name: 'Verbrauch seit Tagesbeginn ('    + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Verbrauch.Woche',      0, {name: 'Verbrauch seit Wochenbeginn ('   + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Verbrauch.Monat',      0, {name: 'Verbrauch seit Monatsbeginn ('   + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Verbrauch.Quartal',    0, {name: 'Verbrauch seit Quartalsbeginn (' + geraet + ')', type: 'number', unit:'kWh'});
-    createState(pfad + geraet + '.Verbrauch.Jahr',       0, {name: 'Verbrauch seit Jahresbeginn ('   + geraet + ')', type: 'number', unit:'kWh'});
+    createState(pfad + geraet + '.Verbrauch.Tag',        0, {name: 'Verbrauch seit Tagesbeginn ('    + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Verbrauch.Woche',      0, {name: 'Verbrauch seit Wochenbeginn ('   + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Verbrauch.Monat',      0, {name: 'Verbrauch seit Monatsbeginn ('   + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Verbrauch.Quartal',    0, {name: 'Verbrauch seit Quartalsbeginn (' + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Verbrauch.Jahr',       0, {name: 'Verbrauch seit Jahresbeginn ('   + geraet + ')', type: 'number', unit: _unit });
             
     // Stromkosten
     createState(pfad + geraet + '.Kosten.Tag',           0, {name: 'Stromkosten heute ('             + geraet + ')', type: 'number', unit:'€'  });
@@ -636,7 +587,7 @@ function erstelleStates (geraet) {
     if(Tag_Anzahl_Werte_in_der_Vergangenheit > 0) {
         
         for(var i = 1; i <= Tag_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Tag.Tag_' + i,             0, {name: 'Verbrauch vor ' + i + ' Tag(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Verbrauch._Tag.Tag_' + i,             0, {name: 'Verbrauch vor ' + i + ' Tag(en) ('    + geraet + ')', type: 'number', unit: _unit });
             createState(pfad + geraet + '.Kosten._Tag.Tag_' + i,                0, {name: 'Stromkosten vor ' + i + ' Tag(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -644,7 +595,7 @@ function erstelleStates (geraet) {
     if(Woche_Anzahl_Werte_in_der_Vergangenheit > 0) {
         
         for(var i = 1; i <= Woche_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Woche.Woche_' + i,         0, {name: 'Verbrauch vor ' + i + ' Woche(n) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Verbrauch._Woche.Woche_' + i,         0, {name: 'Verbrauch vor ' + i + ' Woche(n) ('    + geraet + ')', type: 'number', unit: _unit });
             createState(pfad + geraet + '.Kosten._Woche.Woche_' + i,            0, {name: 'Stromkosten vor ' + i + ' Woche(n) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -652,7 +603,7 @@ function erstelleStates (geraet) {
     if(Monat_Anzahl_Werte_in_der_Vergangenheit > 0) {
 
         for(var i = 1; i <= Monat_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Monat.Monat_' + i,         0, {name: 'Verbrauch vor ' + i + ' Monat(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Verbrauch._Monat.Monat_' + i,         0, {name: 'Verbrauch vor ' + i + ' Monat(en) ('    + geraet + ')', type: 'number', unit: _unit });
             createState(pfad + geraet + '.Kosten._Monat.Monat_' + i,            0, {name: 'Stromkosten vor ' + i + ' Monat(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -660,7 +611,7 @@ function erstelleStates (geraet) {
     if(Quartal_Anzahl_Werte_in_der_Vergangenheit > 0) {
         
         for(var i = 1; i <= Quartal_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Quartal.Quartal_' + i,     0, {name: 'Verbrauch vor ' + i + ' Quartal(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Verbrauch._Quartal.Quartal_' + i,     0, {name: 'Verbrauch vor ' + i + ' Quartal(en) ('    + geraet + ')', type: 'number', unit: _unit });
             createState(pfad + geraet + '.Kosten._Quartal.Quartal_' + i,        0, {name: 'Stromkosten vor ' + i + ' Quartal(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -668,26 +619,19 @@ function erstelleStates (geraet) {
     if(Jahr_Anzahl_Werte_in_der_Vergangenheit > 0) {
 
         for(var i = 1; i <= Jahr_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Jahr.Jahr_' + i,           0, {name: 'Verbrauch vor ' + i + ' Jahr(en) ('    + geraet + ')', type: 'number', unit:'kWh'});
+            createState(pfad + geraet + '.Verbrauch._Jahr.Jahr_' + i,           0, {name: 'Verbrauch vor ' + i + ' Jahr(en) ('    + geraet + ')', type: 'number', unit: _unit });
             createState(pfad + geraet + '.Kosten._Jahr.Jahr_' + i,              0, {name: 'Stromkosten vor ' + i + ' Jahr(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
-    
-    // Tages-, Wochen-, Monats-, Quartal-, Jahreswechsel erkennen
-    createState(pfad + geraet + '.config.Tag',      false, { read: true, write: true, type: "boolean", def: false });
-    createState(pfad + geraet + '.config.Woche',    false, { read: true, write: true, type: "boolean", def: false });
-    createState(pfad + geraet + '.config.Monat',    false, { read: true, write: true, type: "boolean", def: false });
-    createState(pfad + geraet + '.config.Quartal',  false, { read: true, write: true, type: "boolean", def: false });
-    createState(pfad + geraet + '.config.Jahr',     false, { read: true, write: true, type: "boolean", def: false });
 
     // Neustart von CCU oder Gerät erkannt
     createState(pfad + geraet + '.config.NeustartErkanntAlterWert', 0);
     
     // Gerät hat eigenen Strompreis
     if(enable_unterschiedlichePreise) {
-        createState(pfad + geraet + '.eigenerPreis.aktuell.Arbeitspreis'            , { name: 'Strompreis - aktueller Arbeitspreis ab Datum (brutto)' ,     unit: '€/kWh',      type: 'number', def: 0 });
+        createState(pfad + geraet + '.eigenerPreis.aktuell.Arbeitspreis'            , { name: 'Strompreis - aktueller Arbeitspreis ab Datum (brutto)' ,     unit: '€/' + _unit,      type: 'number', def: 0 });
         createState(pfad + geraet + '.eigenerPreis.aktuell.Grundpreis'              , { name: 'Strompreis - aktueller Grundpreis ab Datum (brutto)'   ,     unit: '€/Monat',    type: 'number', def: 0 });
-        createState(pfad + geraet + '.eigenerPreis.neu.Arbeitspreis'                , { name: 'Strompreis - neuer Arbeitspreis ab Datum (brutto)' ,         unit: '€/kWh',      type: 'number', def: 0 });
+        createState(pfad + geraet + '.eigenerPreis.neu.Arbeitspreis'                , { name: 'Strompreis - neuer Arbeitspreis ab Datum (brutto)' ,         unit: '€/' + _unit,      type: 'number', def: 0 });
         createState(pfad + geraet + '.eigenerPreis.neu.Grundpreis'                  , { name: 'Strompreis - neuer Grundpreis ab Datum (brutto)'   ,         unit: '€/Monat',    type: 'number', def: 0 });
         createState(pfad + geraet + '.eigenerPreis.neu.Datum'                       , { name: 'Strompreis und Grundpreis ab folgendem Datum zur Berechnung heranziehen (Beispiel 01.01.2019)', def: "01.01.1970", type: 'string' });
         
