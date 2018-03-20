@@ -15,6 +15,9 @@ https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
 
 ## Changelog
 
+### 1.1.3 (2018-03-20)
+* (hdering) AnzahlKommastellenZaehlerstand korrigiert
+
 ### 1.1.2 (2018-03-19)
 * (hdering) Tages-, Wochen-, Monats-.... bei eigenen Datenpunkten vergessen zu setzen
 
