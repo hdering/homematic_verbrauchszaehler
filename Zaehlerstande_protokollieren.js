@@ -57,7 +57,7 @@ function send_message(text) {
     
     //console.log(text);
     
-    sendTelegramToHermann(text);
+    //sendTelegram(text);
 }
 
 // ++++ ENDE USER ANPASSUNGEN ++++++++++++++++++++++++
