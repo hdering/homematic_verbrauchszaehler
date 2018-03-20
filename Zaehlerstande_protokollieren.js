@@ -3,7 +3,7 @@
 
 //----------------------------------------------------------------------------//
 
-// Version: 1.1.2
+// Version: 1.1.3
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -332,7 +332,7 @@ function run(obj, alias) {
             var idStrompreis = instanz + pfad + 'Preis.aktuell.Arbeitspreis';
             
             // aktualisiere den Verbrauch und die Kosten
-            _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenKosten);
+            _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand);
             _preis      = getState(idStrompreis).val;
             
             // Wenn das Gerät einen eigenen Strompreis hat
