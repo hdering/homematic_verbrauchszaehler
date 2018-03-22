@@ -15,6 +15,11 @@ https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
 
 ## Changelog
 
+### 1.2.0 (2018-03-22)
+* (hdering) Eigene Datenpunkte haben ihre eigene Einheit
+* (hdering) Tages-, Wochen-, Monats-.... werden jetzt immer um 0 Uhr durchgeführt und nicht erst, wenn ein neuer Wert vom Zähler reinkommt.
+* (hdering) Wenn kein Arbeitspreis angegeben wird, wird der Zählerstand trotzdem gezählt. Es wird eine Warnung ins Log geschrieben.
+
 ### 1.1.3 (2018-03-20)
 * (hdering) AnzahlKommastellenZaehlerstand korrigiert
 
