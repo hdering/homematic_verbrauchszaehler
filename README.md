@@ -3,14 +3,8 @@
 ### Wiki
 https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
 
-### Getestete Geräte:
-- HM-ES-TX-WM
-- HM-ES-PMSw1-Pl-DN-R1
-- HMIP-PSM
-
 ## TODO
 - Zaehlerstand_letzte_Ablesung und Zaehlerstand_jetzt angeben können
-- eigeneDatenpunkte so flexibel angeben können, damit Gasverbrauch ebenfalls geloggt werden kann
 - Grundpreis berechnen
 
 ## Changelog
