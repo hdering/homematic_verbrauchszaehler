@@ -8,6 +8,12 @@ https://github.com/hdering/homematic_verbrauchszaehler/wiki/Wiki
 
 ## Changelog
 
+### 1.3.0 (2018-04-11)
+* (hdering) !!! WICHTIG !!! Da das Skript kein reiner Stromzähler mehr ist, habe ich den Pfad innerhalb der Instanz umbenannt "Strom" -> "Verbrauchszaehler". Bevor das neue Skript verwendet wird, solltet ihr euern Ordner in den Objekten nach "Verbrauchszaehler" umbenennen.
+* (hdering) Grundpreis kann jetzt einberechnet werden. Es wird vorher Grundpreis * 12 Monate / 365 Tage gerechnet und dieser Wert dem Tages/Wochen/Monats-... hinzuaddiert
+* (hdering) Die Einheit für den kumulierten sowie berechneten Verbrauch kann angegeben werden (default_unit, default_unit_kilo) (Dadurch kann der Gaszähler m3 als Einheit haben)
+* (hdering) Wenn der Datenpunkt bereits in Kilo angegeben wird, kann die spätere Berechnung nach kilo deaktiviert werden (KumulierterWertIstBereitsInKilo)
+
 ### 1.2.0 (2018-03-22)
 * (hdering) Eigene Datenpunkte haben ihre eigene Einheit
 * (hdering) Tages-, Wochen-, Monats-.... werden jetzt immer um 0 Uhr durchgeführt und nicht erst, wenn ein neuer Wert vom Zähler reinkommt.
