@@ -1,11 +1,10 @@
-# homematic_stromverbrauch_protokollieren
+# homematic_verbrauchszaehler
 
 ### Wiki
-https://github.com/hdering/homematic_stromverbrauch_protokollieren/wiki/Wiki
+https://github.com/hdering/homematic_verbrauchszaehler/wiki/Wiki
 
 ## TODO
 - Zaehlerstand_letzte_Ablesung und Zaehlerstand_jetzt angeben können
-- Grundpreis berechnen
 
 ## Changelog
 
