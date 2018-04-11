@@ -1,5 +1,5 @@
 //jshint maxerr:1000
-// https://github.com/hdering/homematic_stromverbrauch_protokollieren
+// https://github.com/hdering/homematic_verbrauchszaehler
 
 //----------------------------------------------------------------------------//
 
@@ -58,7 +58,7 @@ var eigeneDatenpunkte = [
     // [ 'javascript.1.MeinSonoffGeraet1', 'Strom.Sonoff.MeinSonoffGeraet1', 'Wh', 'kWh' ],
     // [ 'javascript.1.MeinSonoffGeraet2', 'Strom.Sonoff.MeinSonoffGeraet2', 'kWh', 'kWh' ],
     // [ 'javascript.1.MeineGas1', 'Gas.MeinGaszaehler1', 'm3', 'm3' ],
-	// [ 'javascript.1.MeineGas2', 'Gas.MeinGaszaehler2', 'm3', 'm3' ],
+    // [ 'javascript.1.MeineGas2', 'Gas.MeinGaszaehler2', 'm3', 'm3' ],
 ];
 
 // Pushmeldung
@@ -578,22 +578,22 @@ function berechneVerbrauchUndKosten(geraet, zaehler, preis, grundpreis) {
     setState(instanz + pfad + geraet + '.Kosten.Tag',        parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val) * preis) + grundpreis_tag).toFixed(AnzahlKommastellenKosten) ) );  // Kosten an diesem Tag in €
     
     // Woche
-	grundpreis_woche = _grundpreis * 7;
+    grundpreis_woche = _grundpreis * 7;
     setState(instanz + pfad + geraet + '.Verbrauch.Woche',   parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val).toFixed(AnzahlKommastellenVerbrauch) ) );
     setState(instanz + pfad + geraet + '.Kosten.Woche',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val) * preis) + grundpreis_woche).toFixed(AnzahlKommastellenKosten) ) );
     
     // Monat
-	grundpreis_monat = _grundpreis * 30;    
+    grundpreis_monat = _grundpreis * 30;    
     setState(instanz + pfad + geraet + '.Verbrauch.Monat',   parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val).toFixed(AnzahlKommastellenVerbrauch) ) );
     setState(instanz + pfad + geraet + '.Kosten.Monat',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val) * preis) + grundpreis_monat).toFixed(AnzahlKommastellenKosten) ) );
     
     // Quartal
-	grundpreis_quartal = _grundpreis * 90;
+    grundpreis_quartal = _grundpreis * 90;
     setState(instanz + pfad + geraet + '.Verbrauch.Quartal', parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val).toFixed(AnzahlKommastellenVerbrauch) ) );
     setState(instanz + pfad + geraet + '.Kosten.Quartal',    parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val) * preis) + grundpreis_quartal).toFixed(AnzahlKommastellenKosten) ) );
     
     // Jahr
-	grundpreis_jahr = _grundpreis * 365;
+    grundpreis_jahr = _grundpreis * 365;
     setState(instanz + pfad + geraet + '.Verbrauch.Jahr',    parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val).toFixed(AnzahlKommastellenVerbrauch) ) );
     setState(instanz + pfad + geraet + '.Kosten.Jahr',       parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val) * preis) + grundpreis_jahr).toFixed(AnzahlKommastellenKosten) ) );  
     
