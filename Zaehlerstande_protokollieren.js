@@ -47,7 +47,7 @@ var AnzahlKommastellenKosten = 2;
 var AnzahlKommastellenVerbrauch = 3;
 var AnzahlKommastellenZaehlerstand = 3;
 
-var KumulierterWertIstBereitsInKilo = true;
+var KumulierterWertIstBereitsInKilo = false;
 
 var eigeneDatenpunkte = [
     
