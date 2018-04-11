@@ -3,7 +3,7 @@
 
 //----------------------------------------------------------------------------//
 
-// Version: 1.2.0
+// Version: 1.3.0
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -28,13 +28,17 @@ var Monat_Anzahl_Werte_in_der_Vergangenheit     = 12;
 var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 4;
 var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 2;
 
+// Grundpreis einberechnen
+var enable_Grundpreis_einberechnen = true;
+
 var instance    = '0';
 var instanz     = 'javascript.' + instance + '.';
 
 // Pfad innerhalb der Instanz
-var pfad        = 'Strom.';
+var pfad        = 'Verbrauchszaehler.';
 
 var default_unit = 'Wh';
+var default_unit_kilo = 'kWh';
 
 // Diese Teile werden aus den Gerätenamen entfernt
 var blacklist   = [':1', ':2', ':3', ':4', ':5', ':6', ':7', ':8'];
@@ -43,13 +47,18 @@ var AnzahlKommastellenKosten = 2;
 var AnzahlKommastellenVerbrauch = 3;
 var AnzahlKommastellenZaehlerstand = 3;
 
+var KumulierterWertIstBereitsInKilo = true;
+
 var eigeneDatenpunkte = [
-    // Beispiel:
-    // ['Datenpunkt', 'Aliasname', 'Einheit' ],
     
-    // [ 'hm-rpc.2.NEQ0861663.1.ENERGY_COUNTER', 'Stromzaehler:1.ENERGY_COUNTER' ],
-    // [ 'javascript.1.MeinePower', 'MeinSonoff' ],
-    // [ 'javascript.1.MeinePower2', 'Sonoff.MeinZweiterSonoff' ],
+    // Beispiel:
+    // ['Datenpunkt', 'Aliasname', 'Einheit kumulierter Wert', 'Einheit berechnete Werte (kilo/1000)' ],
+    
+    // [ 'hm-rpc.2.NEQ0861663.1.ENERGY_COUNTER', 'Stromzaehler:1.ENERGY_COUNTER', 'Wh', 'kWh' ],
+    // [ 'javascript.1.MeinSonoffGeraet1', 'Strom.Sonoff.MeinSonoffGeraet1', 'Wh', 'kWh' ],
+    // [ 'javascript.1.MeinSonoffGeraet2', 'Strom.Sonoff.MeinSonoffGeraet2', 'kWh', 'kWh' ],
+    // [ 'javascript.1.MeineGas1', 'Gas.MeinGaszaehler1', 'm3', 'm3' ],
+	// [ 'javascript.1.MeineGas2', 'Gas.MeinGaszaehler2', 'm3', 'm3' ],
 ];
 
 // Pushmeldung
@@ -67,7 +76,7 @@ function send_message(text) {
 
 createState(pfad + 'Preis.aktuell.Arbeitspreis', {
     name: 'Strompreis - aktueller Arbeitspreis (brutto)',
-    unit: '€/k' + default_unit,
+    unit: '€/' + default_unit_kilo,
     type: 'number',
     def:  0,
     min:  0
@@ -85,7 +94,7 @@ createState(pfad + 'Preis.aktuell.Grundpreis',  {
 
 createState(pfad + 'Preis.neu.Arbeitspreis', {
     name: 'Strompreis - neuer Arbeitspreis ab Datum (brutto)',
-    unit: '€/k' + default_unit,
+    unit: '€/' + default_unit_kilo,
     type: 'number',
     def:  0,
     min:  0
@@ -126,6 +135,7 @@ function parseObjects(id) {
 }
 
 function setRecognizedChange(type, anzahl) {
+    
     cacheSelectorStateMeter.each(function (id, i) {
         var geraetename = parseObjects(id);
 
@@ -199,15 +209,16 @@ function pruefeEigeneDatenpunkte() {
             var datenpunkt = eigeneDatenpunkte[i][0];
             var alias = eigeneDatenpunkte[i][1];
             var einheit = eigeneDatenpunkte[i][2];
+            var einheit_kilo = eigeneDatenpunkte[i][3];
             
-            if(logging) console.log("Alias:" + alias + " Datenpunkt:" + datenpunkt + " Einheit:" + einheit);
+            if(logging) console.log("Alias:" + alias + " Datenpunkt:" + datenpunkt + " Einheit:" + einheit + " Einheit_kilo:" + einheit_kilo);
 
             on(datenpunkt, function(obj) {
 
                 for(var i = 0; i < eigeneDatenpunkte.length; i++) {
                     
                     if(eigeneDatenpunkte[i][0] === obj.id)    
-                        run(obj, eigeneDatenpunkte[i][1], eigeneDatenpunkte[i][2]);
+                        run(obj, eigeneDatenpunkte[i][1], eigeneDatenpunkte[i][2], eigeneDatenpunkte[i][3]);
                 }
             });
         }
@@ -219,13 +230,11 @@ pruefeEigeneDatenpunkte();
 //----------------------------------------------------------------------------//
 
 // Einlesen der aktuellen Daten vom Zähler
-function run(obj, alias, einheit) {
+function run(obj, alias, unit, unit_kilo) {
     
     if (logging) {   
         log('-------- Strommesser ---------');
         log('RegExp-Funktion ausgelöst');
-        log('Gewerk:       ' + obj.role);   // undefined
-        log('Beschreibung: ' + obj.desc);   // undefined
         log('id:           ' + obj.id);
         log('Name:         ' + obj.common.name);   // Waschmaschine Küche:2.ENERGY_COUNTER
         log('channel ID:   ' + obj.channelId);     // hm-rpc.0.MEQ0170864.2
@@ -234,7 +243,6 @@ function run(obj, alias, einheit) {
         log('device name:  ' + obj.deviceName);    // Küche Waschmaschine
         log('neuer Wert:   ' + obj.newState.val);  // 16499.699982
         log('alter Wert:   ' + obj.oldState.val);  // 16499.699982
-        log('Einheit:      ' + obj.common.unit);   // Wh
     }
 
     // Gerätenamen erstellen
@@ -255,13 +263,18 @@ function run(obj, alias, einheit) {
         //------------------------------------------------------------------------//
         
         _unit = default_unit;
+        _unit_kilo = default_unit_kilo;
         
         // States erstellen (CreateStates für dieses Gerät)
-        if(typeof einheit !== "undefined")  {
-            _unit = einheit;
+        if(typeof unit !== "undefined")  {
+            _unit = unit;
         }
         
-        erstelleStates(geraetename, _unit);
+        if(typeof unit_kilo !== "undefined")  {
+            _unit_kilo = unit_kilo;
+        }
+        
+        erstelleStates(geraetename, _unit, _unit_kilo);
         
         //------------------------------------------------------------------------//
         
@@ -351,22 +364,34 @@ function run(obj, alias, einheit) {
                 pruefePreisaenderung(geraetename);
             
             var idStrompreis = instanz + pfad + 'Preis.aktuell.Arbeitspreis';
+            var idGrundpreis = instanz + pfad + 'Preis.aktuell.Grundpreis';
             
             // aktualisiere den Verbrauch und die Kosten
-            _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand);
-            _preis      = getState(idStrompreis).val;
+            if(KumulierterWertIstBereitsInKilo)
+                _zaehler    = (getState(idKumuliert).val).toFixed(AnzahlKommastellenZaehlerstand);
+            else
+                _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand);
             
-            // Wenn das Gerät einen eigenen Strompreis hat
-            if(enable_unterschiedlichePreise && getObject(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis')) {
+            _preis      = getState(idStrompreis).val;
+            _grundpreis = getState(idGrundpreis).val;
+            
+            // Wenn das Gerät einen eigenen Preis / Grundpreis hat
+            if(enable_unterschiedlichePreise) {
                 
                 if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val > 0) {
                     _preis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val;
+
+                    if (logging) console.log("Das Gerät:" + geraetename + " hat einen eigenen Preis: " + _preis);
+                }
+                
+                if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Grundpreis').val > 0) {
+                    _grundpreis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Grundpreis').val;
                     
-                    if (logging) console.log("Das Gerät:" + geraetename + " hat eigenen Strompreis: " + _preis);
+                    if (logging) console.log("Das Gerät:" + geraetename + " hat einen eigenen Grundpreis: " + _grundpreis);
                 }
             }
     
-            berechneVerbrauchUndKosten(geraetename, _zaehler, _preis); // in kWh
+            berechneVerbrauchUndKosten(geraetename, _zaehler, _preis, _grundpreis); // in kWh
         }
 
         if (logging) log('------------ ENDE ------------');
@@ -474,7 +499,11 @@ function schreibeZaehlerstand(geraet, zeitraum) {
         idZaehlerstand = instanz + pfad + geraet + '.Zaehlerstand.' + zeitraum;
     
     // Zählerstand für übergebene Zeitraum und das Gerät in Wh auslesen und in kWh speichern (also durch 1000)
-    setState(idZaehlerstand, parseFloat( (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand)) );  
+    
+    if(KumulierterWertIstBereitsInKilo)
+        setState(idZaehlerstand, parseFloat( (getState(idKumuliert).val).toFixed(AnzahlKommastellenZaehlerstand)) );  
+    else
+        setState(idZaehlerstand, parseFloat( (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand)) ); 
 
     if (logging) log('Zählerstände für das Gerät ' + geraet + ' (' + zeitraum + ') in Objekten gespeichert');
 }
@@ -530,64 +559,78 @@ function resetVerbrauchUndKosten(geraet, zeitraum) {
     if (logging) log('Stromkosten und Stromverbrauch für das Gerät ' + geraet + ' (' + zeitraum + ') zurückgesetzt');
 } 
 
-function berechneVerbrauchUndKosten(geraet, zaehler, preis) {                      
+function berechneVerbrauchUndKosten(geraet, zaehler, preis, grundpreis) {                      
     
     // bei jedem eingehenden Wert pro Gerät
     
+    var _grundpreis = 0;
+    
+    if(enable_Grundpreis) {
+
+        _grundpreis = grundpreis * 12 / 365;
+        
+        _grundpreis = parseFloat(_grundpreis.toFixed(3));
+    }
+
     // Tag [Verbrauchskosten = (Zähler_ist - Zähler_Tagesbeginn) * Preis ] --- zaehler muss immer größer sein als Tages, Wochen, etc.-Wert
-    setState(instanz + pfad + geraet + '.Verbrauch.Tag',     parseFloat(  (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val).toFixed(AnzahlKommastellenVerbrauch) ) );           // Verbrauch an diesem Tag in kWh
-    setState(instanz + pfad + geraet + '.Kosten.Tag',        parseFloat( ((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val) * preis).toFixed(AnzahlKommastellenKosten) ) );  // Kosten an diesem Tag in €
+    grundpreis_tag = _grundpreis;
+    setState(instanz + pfad + geraet + '.Verbrauch.Tag',     parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val).toFixed(AnzahlKommastellenVerbrauch) ) );           // Verbrauch an diesem Tag in kWh
+    setState(instanz + pfad + geraet + '.Kosten.Tag',        parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val) * preis) + grundpreis_tag).toFixed(AnzahlKommastellenKosten) ) );  // Kosten an diesem Tag in €
     
-    // Woche    
-    setState(instanz + pfad + geraet + '.Verbrauch.Woche',   parseFloat(  (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Woche',      parseFloat( ((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val) * preis).toFixed(AnzahlKommastellenKosten) ) );
+    // Woche
+	grundpreis_woche = _grundpreis * 7;
+    setState(instanz + pfad + geraet + '.Verbrauch.Woche',   parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val).toFixed(AnzahlKommastellenVerbrauch) ) );
+    setState(instanz + pfad + geraet + '.Kosten.Woche',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val) * preis) + grundpreis_woche).toFixed(AnzahlKommastellenKosten) ) );
     
-    // Monat    
-    setState(instanz + pfad + geraet + '.Verbrauch.Monat',   parseFloat(  (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Monat',      parseFloat( ((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val) * preis).toFixed(AnzahlKommastellenKosten) ) );
+    // Monat
+	grundpreis_monat = _grundpreis * 30;    
+    setState(instanz + pfad + geraet + '.Verbrauch.Monat',   parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val).toFixed(AnzahlKommastellenVerbrauch) ) );
+    setState(instanz + pfad + geraet + '.Kosten.Monat',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val) * preis) + grundpreis_monat).toFixed(AnzahlKommastellenKosten) ) );
     
-    // Quartal    
-    setState(instanz + pfad + geraet + '.Verbrauch.Quartal', parseFloat(  (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Quartal',    parseFloat( ((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val) * preis).toFixed(AnzahlKommastellenKosten) ) );
+    // Quartal
+	grundpreis_quartal = _grundpreis * 90;
+    setState(instanz + pfad + geraet + '.Verbrauch.Quartal', parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val).toFixed(AnzahlKommastellenVerbrauch) ) );
+    setState(instanz + pfad + geraet + '.Kosten.Quartal',    parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val) * preis) + grundpreis_quartal).toFixed(AnzahlKommastellenKosten) ) );
     
-    // Jahr    
-    setState(instanz + pfad + geraet + '.Verbrauch.Jahr',    parseFloat(  (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Jahr',       parseFloat( ((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val) * preis).toFixed(AnzahlKommastellenKosten) ) );  
+    // Jahr
+	grundpreis_jahr = _grundpreis * 365;
+    setState(instanz + pfad + geraet + '.Verbrauch.Jahr',    parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val).toFixed(AnzahlKommastellenVerbrauch) ) );
+    setState(instanz + pfad + geraet + '.Kosten.Jahr',       parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val) * preis) + grundpreis_jahr).toFixed(AnzahlKommastellenKosten) ) );  
     
     if (logging) log('Stromverbrauch und -kosten (' + geraet + ') aktualisiert');
 }
 
-function erstelleStates (geraet, _unit) {
+function erstelleStates (geraet, _unit, _unit_kilo) {
     
     // Kumulierter Zählerstand (wird nie kleiner)
-    createState(pfad + geraet + '.Zaehlerstand.kumuliert', 0, {name: 'Kumulierter Zählerstand (' + geraet + ')', type: 'number', unit: _unit});
+    createState(pfad + geraet + '.Zaehlerstand.kumuliert', 0, {name: 'Kumulierter Zählerstand (' + geraet + ')', type: 'number', unit: _unit });
             
     // Zählerstand
-    createState(pfad + geraet + '.Zaehlerstand.Tag',     0, {name: 'Zählerstand Tagesbeginn ('       + geraet + ')', type: 'number', unit: 'k' + _unit });
-    createState(pfad + geraet + '.Zaehlerstand.Woche',   0, {name: 'Zählerstand Wochenbeginn ('      + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Zaehlerstand.Monat',   0, {name: 'Zählerstand Monatsbeginn ('      + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Zaehlerstand.Quartal', 0, {name: 'Zählerstand Quartalsbeginn ('    + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Zaehlerstand.Jahr',    0, {name: 'Zählerstand Jahresbeginn ('      + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Zaehlerstand.Tag',     0, {name: 'Zählerstand Tagesbeginn ('       + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Zaehlerstand.Woche',   0, {name: 'Zählerstand Wochenbeginn ('      + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Zaehlerstand.Monat',   0, {name: 'Zählerstand Monatsbeginn ('      + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Zaehlerstand.Quartal', 0, {name: 'Zählerstand Quartalsbeginn ('    + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Zaehlerstand.Jahr',    0, {name: 'Zählerstand Jahresbeginn ('      + geraet + ')', type: 'number', unit: _unit_kilo });
     
     // Verbrauch 
-    createState(pfad + geraet + '.Verbrauch.Tag',        0, {name: 'Verbrauch seit Tagesbeginn ('    + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Verbrauch.Woche',      0, {name: 'Verbrauch seit Wochenbeginn ('   + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Verbrauch.Monat',      0, {name: 'Verbrauch seit Monatsbeginn ('   + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Verbrauch.Quartal',    0, {name: 'Verbrauch seit Quartalsbeginn (' + geraet + ')', type: 'number', unit: _unit });
-    createState(pfad + geraet + '.Verbrauch.Jahr',       0, {name: 'Verbrauch seit Jahresbeginn ('   + geraet + ')', type: 'number', unit: _unit });
+    createState(pfad + geraet + '.Verbrauch.Tag',        0, {name: 'Verbrauch seit Tagesbeginn ('    + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Verbrauch.Woche',      0, {name: 'Verbrauch seit Wochenbeginn ('   + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Verbrauch.Monat',      0, {name: 'Verbrauch seit Monatsbeginn ('   + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Verbrauch.Quartal',    0, {name: 'Verbrauch seit Quartalsbeginn (' + geraet + ')', type: 'number', unit: _unit_kilo });
+    createState(pfad + geraet + '.Verbrauch.Jahr',       0, {name: 'Verbrauch seit Jahresbeginn ('   + geraet + ')', type: 'number', unit: _unit_kilo });
             
     // Stromkosten
-    createState(pfad + geraet + '.Kosten.Tag',           0, {name: 'Stromkosten heute ('             + geraet + ')', type: 'number', unit:'€'  });
-    createState(pfad + geraet + '.Kosten.Woche',         0, {name: 'Stromkosten Woche ('             + geraet + ')', type: 'number', unit:'€'  });
-    createState(pfad + geraet + '.Kosten.Monat',         0, {name: 'Stromkosten Monat ('             + geraet + ')', type: 'number', unit:'€'  });
-    createState(pfad + geraet + '.Kosten.Quartal',       0, {name: 'Stromkosten Quartal ('           + geraet + ')', type: 'number', unit:'€'  });
-    createState(pfad + geraet + '.Kosten.Jahr',          0, {name: 'Stromkosten Jahr ('              + geraet + ')', type: 'number', unit:'€'  });
+    createState(pfad + geraet + '.Kosten.Tag',           0, {name: 'Stromkosten heute ('             + geraet + ')', type: 'number', unit: '€' });
+    createState(pfad + geraet + '.Kosten.Woche',         0, {name: 'Stromkosten Woche ('             + geraet + ')', type: 'number', unit: '€' });
+    createState(pfad + geraet + '.Kosten.Monat',         0, {name: 'Stromkosten Monat ('             + geraet + ')', type: 'number', unit: '€' });
+    createState(pfad + geraet + '.Kosten.Quartal',       0, {name: 'Stromkosten Quartal ('           + geraet + ')', type: 'number', unit: '€' });
+    createState(pfad + geraet + '.Kosten.Jahr',          0, {name: 'Stromkosten Jahr ('              + geraet + ')', type: 'number', unit: '€' });
     
     // Speichern der Werte in zusätzlichen Variablen
     if(Tag_Anzahl_Werte_in_der_Vergangenheit > 0) {
         
         for(var i = 1; i <= Tag_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Tag.Tag_' + i,             0, {name: 'Verbrauch vor ' + i + ' Tag(en) ('    + geraet + ')', type: 'number', unit: _unit });
+            createState(pfad + geraet + '.Verbrauch._Tag.Tag_' + i,             0, {name: 'Verbrauch vor ' + i + ' Tag(en) ('    + geraet + ')', type: 'number', unit: _unit_kilo });
             createState(pfad + geraet + '.Kosten._Tag.Tag_' + i,                0, {name: 'Stromkosten vor ' + i + ' Tag(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -595,7 +638,7 @@ function erstelleStates (geraet, _unit) {
     if(Woche_Anzahl_Werte_in_der_Vergangenheit > 0) {
         
         for(var i = 1; i <= Woche_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Woche.Woche_' + i,         0, {name: 'Verbrauch vor ' + i + ' Woche(n) ('    + geraet + ')', type: 'number', unit: _unit });
+            createState(pfad + geraet + '.Verbrauch._Woche.Woche_' + i,         0, {name: 'Verbrauch vor ' + i + ' Woche(n) ('    + geraet + ')', type: 'number', unit: _unit_kilo });
             createState(pfad + geraet + '.Kosten._Woche.Woche_' + i,            0, {name: 'Stromkosten vor ' + i + ' Woche(n) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -603,7 +646,7 @@ function erstelleStates (geraet, _unit) {
     if(Monat_Anzahl_Werte_in_der_Vergangenheit > 0) {
 
         for(var i = 1; i <= Monat_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Monat.Monat_' + i,         0, {name: 'Verbrauch vor ' + i + ' Monat(en) ('    + geraet + ')', type: 'number', unit: _unit });
+            createState(pfad + geraet + '.Verbrauch._Monat.Monat_' + i,         0, {name: 'Verbrauch vor ' + i + ' Monat(en) ('    + geraet + ')', type: 'number', unit: _unit_kilo });
             createState(pfad + geraet + '.Kosten._Monat.Monat_' + i,            0, {name: 'Stromkosten vor ' + i + ' Monat(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -611,7 +654,7 @@ function erstelleStates (geraet, _unit) {
     if(Quartal_Anzahl_Werte_in_der_Vergangenheit > 0) {
         
         for(var i = 1; i <= Quartal_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Quartal.Quartal_' + i,     0, {name: 'Verbrauch vor ' + i + ' Quartal(en) ('    + geraet + ')', type: 'number', unit: _unit });
+            createState(pfad + geraet + '.Verbrauch._Quartal.Quartal_' + i,     0, {name: 'Verbrauch vor ' + i + ' Quartal(en) ('    + geraet + ')', type: 'number', unit: _unit_kilo });
             createState(pfad + geraet + '.Kosten._Quartal.Quartal_' + i,        0, {name: 'Stromkosten vor ' + i + ' Quartal(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -619,7 +662,7 @@ function erstelleStates (geraet, _unit) {
     if(Jahr_Anzahl_Werte_in_der_Vergangenheit > 0) {
 
         for(var i = 1; i <= Jahr_Anzahl_Werte_in_der_Vergangenheit; i++) {
-            createState(pfad + geraet + '.Verbrauch._Jahr.Jahr_' + i,           0, {name: 'Verbrauch vor ' + i + ' Jahr(en) ('    + geraet + ')', type: 'number', unit: _unit });
+            createState(pfad + geraet + '.Verbrauch._Jahr.Jahr_' + i,           0, {name: 'Verbrauch vor ' + i + ' Jahr(en) ('    + geraet + ')', type: 'number', unit: _unit_kilo });
             createState(pfad + geraet + '.Kosten._Jahr.Jahr_' + i,              0, {name: 'Stromkosten vor ' + i + ' Jahr(en) ('  + geraet + ')', type: 'number', unit:'€'  });
         }
     }
@@ -629,9 +672,9 @@ function erstelleStates (geraet, _unit) {
     
     // Gerät hat eigenen Strompreis
     if(enable_unterschiedlichePreise) {
-        createState(pfad + geraet + '.eigenerPreis.aktuell.Arbeitspreis'            , { name: 'Strompreis - aktueller Arbeitspreis ab Datum (brutto)' ,     unit: '€/' + _unit,      type: 'number', def: 0 });
+        createState(pfad + geraet + '.eigenerPreis.aktuell.Arbeitspreis'            , { name: 'Strompreis - aktueller Arbeitspreis ab Datum (brutto)' ,     unit: '€/' + _unit_kilo,      type: 'number', def: 0 });
         createState(pfad + geraet + '.eigenerPreis.aktuell.Grundpreis'              , { name: 'Strompreis - aktueller Grundpreis ab Datum (brutto)'   ,     unit: '€/Monat',    type: 'number', def: 0 });
-        createState(pfad + geraet + '.eigenerPreis.neu.Arbeitspreis'                , { name: 'Strompreis - neuer Arbeitspreis ab Datum (brutto)' ,         unit: '€/' + _unit,      type: 'number', def: 0 });
+        createState(pfad + geraet + '.eigenerPreis.neu.Arbeitspreis'                , { name: 'Strompreis - neuer Arbeitspreis ab Datum (brutto)' ,         unit: '€/' + _unit_kilo,      type: 'number', def: 0 });
         createState(pfad + geraet + '.eigenerPreis.neu.Grundpreis'                  , { name: 'Strompreis - neuer Grundpreis ab Datum (brutto)'   ,         unit: '€/Monat',    type: 'number', def: 0 });
         createState(pfad + geraet + '.eigenerPreis.neu.Datum'                       , { name: 'Strompreis und Grundpreis ab folgendem Datum zur Berechnung heranziehen (Beispiel 01.01.2019)', def: "01.01.1970", type: 'string' });
         
