@@ -565,7 +565,7 @@ function berechneVerbrauchUndKosten(geraet, zaehler, preis, grundpreis) {
     
     var _grundpreis = 0;
     
-    if(enable_Grundpreis) {
+    if(enable_Grundpreis_einberechnen) {
 
         _grundpreis = grundpreis * 12 / 365;
         
