@@ -1,9 +1,9 @@
 //jshint maxerr:1000
-// https://github.com/hdering/homematic_verbrauchszaehler
+// https://github.com/hdering/homematic_stromverbrauch_protokollieren
 
 //----------------------------------------------------------------------------//
 
-// Version: 1.3.1
+// Version: 1.3.3
 
 //----------------------------------------------------------------------------//
 // +++++++++  USER ANPASSUNGEN ++++++++++++++++++++++++
@@ -18,7 +18,7 @@ var enable_history = false;
 var instance_history = 'history.0';
 
 // Geräte können unterschiedliche Preise haben
-var enable_unterschiedlichePreise = true;
+var enable_unterschiedlichePreise = false;
 
 // Speichern der Werte in zusätzlichen Objekten.
 // Wenn 0, dann deaktiviert
@@ -29,7 +29,7 @@ var Quartal_Anzahl_Werte_in_der_Vergangenheit   = 4;
 var Jahr_Anzahl_Werte_in_der_Vergangenheit      = 2;
 
 // Grundpreis einberechnen
-var enable_Grundpreis_einberechnen = true;
+var enable_Grundpreis_einberechnen = false;
 
 var instance    = '0';
 var instanz     = 'javascript.' + instance + '.';
@@ -346,53 +346,41 @@ function run(obj, alias, unit, unit_kilo) {
         }
         
         //--------------------------------------------------------------------//
-        
-        if(getState(instanz + pfad + 'Preis.aktuell.Arbeitspreis').val === 0) {
-        
-            var message0 = 'Achtung!' + '.\n'
-                        + 'Es wurde noch kein Arbeitspreis angegeben.' + '\n' 
-                        + 'Ohne Arbeitspreis kann das Skript keine Berechnungen durchführen.' + '\n'
-                        + 'Diese Information ist zwingend notwendig!';
-            
-            log(message0, 'error');
-        
-        } else {
 
-            pruefePreisaenderung();
+        pruefePreisaenderung();
+        
+        if(enable_unterschiedlichePreise)
+            pruefePreisaenderung(geraetename);
+        
+        var idStrompreis = instanz + pfad + 'Preis.aktuell.Arbeitspreis';
+        var idGrundpreis = instanz + pfad + 'Preis.aktuell.Grundpreis';
+        
+        // aktualisiere den Verbrauch und die Kosten
+        if(KumulierterWertIstBereitsInKilo)
+            _zaehler    = (getState(idKumuliert).val).toFixed(AnzahlKommastellenZaehlerstand);
+        else
+            _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand);
+        
+        _preis      = getState(idStrompreis).val;
+        _grundpreis = getState(idGrundpreis).val;
+        
+        // Wenn das Gerät einen eigenen Strompreis / Grundpreis hat
+        if(enable_unterschiedlichePreise) {
             
-            if(enable_unterschiedlichePreise)
-                pruefePreisaenderung(geraetename);
-            
-            var idStrompreis = instanz + pfad + 'Preis.aktuell.Arbeitspreis';
-            var idGrundpreis = instanz + pfad + 'Preis.aktuell.Grundpreis';
-            
-            // aktualisiere den Verbrauch und die Kosten
-            if(KumulierterWertIstBereitsInKilo)
-                _zaehler    = (getState(idKumuliert).val).toFixed(AnzahlKommastellenZaehlerstand);
-            else
-                _zaehler    = (getState(idKumuliert).val / 1000).toFixed(AnzahlKommastellenZaehlerstand);
-            
-            _preis      = getState(idStrompreis).val;
-            _grundpreis = getState(idGrundpreis).val;
-            
-            // Wenn das Gerät einen eigenen Preis / Grundpreis hat
-            if(enable_unterschiedlichePreise) {
-                
-                if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val > 0) {
-                    _preis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val;
+            if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val > 0) {
+                _preis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Arbeitspreis').val;
 
-                    if (logging) console.log("Das Gerät:" + geraetename + " hat einen eigenen Preis: " + _preis);
-                }
-                
-                if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Grundpreis').val > 0) {
-                    _grundpreis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Grundpreis').val;
-                    
-                    if (logging) console.log("Das Gerät:" + geraetename + " hat einen eigenen Grundpreis: " + _grundpreis);
-                }
+                if (logging) console.log("Das Gerät:" + geraetename + " hat eigenen Strompreis: " + _preis);
             }
-    
-            berechneVerbrauchUndKosten(geraetename, _zaehler, _preis, _grundpreis); // in kWh
+            
+            if(getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Grundpreis').val > 0) {
+                _grundpreis = getState(instanz + pfad + geraetename + '.eigenerPreis.aktuell.Grundpreis').val;
+                
+                if (logging) console.log("Das Gerät:" + geraetename + " hat eigenen Grundpreis: " + _grundpreis);
+            }
         }
+
+        berechneVerbrauchUndKosten(geraetename, _zaehler, _preis, _grundpreis); // in kWh
 
         if (logging) log('------------ ENDE ------------');
         
@@ -562,42 +550,69 @@ function resetVerbrauchUndKosten(geraet, zeitraum) {
 function berechneVerbrauchUndKosten(geraet, zaehler, preis, grundpreis) {                      
     
     // bei jedem eingehenden Wert pro Gerät
-    
-    var _grundpreis = 0;
-    
-    if(enable_Grundpreis_einberechnen) {
 
-        _grundpreis = grundpreis * 12 / 365;
+    if(preis === 0) {
+    
+        var message0 = 'Achtung!' + '.\n'
+                    + 'Es wurde noch kein Arbeitspreis angegeben.' + '\n' 
+                    + 'Ohne Arbeitspreis kann das Skript keine Berechnungen durchführen.' + '\n'
+                    + 'Diese Information ist zwingend notwendig!';
         
-        _grundpreis = parseFloat(_grundpreis.toFixed(3));
+        log(message0, 'error');
+        
+    } else {
+    
+        var _grundpreis = 0;
+        
+        if(enable_Grundpreis_einberechnen) {
+    
+            _grundpreis = grundpreis * 12 / 365;
+            
+            _grundpreis = parseFloat(_grundpreis.toFixed(3));
+        }
+        
+        grundpreis_tag      = _grundpreis;
+        grundpreis_woche    = _grundpreis * 7;
+        grundpreis_monat    = _grundpreis * 30; 
+        grundpreis_quartal  = _grundpreis * 90;
+        grundpreis_jahr     = _grundpreis * 365;
+    
+        // Tag [Verbrauchskosten = (Zähler_ist - Zähler_Tagesbeginn) * Preis ] --- zaehler muss immer größer sein als Tages, Wochen, etc.-Wert
+        setState(instanz + pfad + geraet + '.Kosten.Tag',        parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val) * preis) + grundpreis_tag).toFixed(AnzahlKommastellenKosten) ) );  // Kosten an diesem Tag in €
+        
+        // Woche
+        setState(instanz + pfad + geraet + '.Kosten.Woche',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val) * preis) + grundpreis_woche).toFixed(AnzahlKommastellenKosten) ) );
+        
+        // Monat
+        setState(instanz + pfad + geraet + '.Kosten.Monat',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val) * preis) + grundpreis_monat).toFixed(AnzahlKommastellenKosten) ) );
+        
+        // Quartal
+        setState(instanz + pfad + geraet + '.Kosten.Quartal',    parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val) * preis) + grundpreis_quartal).toFixed(AnzahlKommastellenKosten) ) );
+        
+        // Jahr
+        setState(instanz + pfad + geraet + '.Kosten.Jahr',       parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val) * preis) + grundpreis_jahr).toFixed(AnzahlKommastellenKosten) ) );  
+        
+        if (logging) log('Stromkosten (' + geraet + ') aktualisiert');
     }
-
+    
+    // Verbrauch berechnen
+    
     // Tag [Verbrauchskosten = (Zähler_ist - Zähler_Tagesbeginn) * Preis ] --- zaehler muss immer größer sein als Tages, Wochen, etc.-Wert
-    grundpreis_tag = _grundpreis;
     setState(instanz + pfad + geraet + '.Verbrauch.Tag',     parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val).toFixed(AnzahlKommastellenVerbrauch) ) );           // Verbrauch an diesem Tag in kWh
-    setState(instanz + pfad + geraet + '.Kosten.Tag',        parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Tag').val) * preis) + grundpreis_tag).toFixed(AnzahlKommastellenKosten) ) );  // Kosten an diesem Tag in €
-    
+
     // Woche
-    grundpreis_woche = _grundpreis * 7;
     setState(instanz + pfad + geraet + '.Verbrauch.Woche',   parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Woche',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Woche').val) * preis) + grundpreis_woche).toFixed(AnzahlKommastellenKosten) ) );
-    
+
     // Monat
-    grundpreis_monat = _grundpreis * 30;    
     setState(instanz + pfad + geraet + '.Verbrauch.Monat',   parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Monat',      parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Monat').val) * preis) + grundpreis_monat).toFixed(AnzahlKommastellenKosten) ) );
-    
+
     // Quartal
-    grundpreis_quartal = _grundpreis * 90;
     setState(instanz + pfad + geraet + '.Verbrauch.Quartal', parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Quartal',    parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Quartal').val) * preis) + grundpreis_quartal).toFixed(AnzahlKommastellenKosten) ) );
-    
+
     // Jahr
-    grundpreis_jahr = _grundpreis * 365;
     setState(instanz + pfad + geraet + '.Verbrauch.Jahr',    parseFloat(   (zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val).toFixed(AnzahlKommastellenVerbrauch) ) );
-    setState(instanz + pfad + geraet + '.Kosten.Jahr',       parseFloat( (((zaehler - getState(instanz + pfad + geraet + '.Zaehlerstand.Jahr').val) * preis) + grundpreis_jahr).toFixed(AnzahlKommastellenKosten) ) );  
     
-    if (logging) log('Stromverbrauch und -kosten (' + geraet + ') aktualisiert');
+    if (logging) log('Stromverbrauch (' + geraet + ') aktualisiert');
 }
 
 function erstelleStates (geraet, _unit, _unit_kilo) {
