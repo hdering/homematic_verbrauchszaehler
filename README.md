@@ -8,6 +8,9 @@ https://github.com/hdering/homematic_verbrauchszaehler/wiki/Wiki
 
 ## Changelog
 
+### 1.3.3 (2018-04-16)
+* (hdering) Wenn Standard Arbeitspreis 0 war, egal ob eigenePreise aktiviert war, wurde Verbrauch und Kosten nicht berechnet
+
 ### 1.3.0 (2018-04-11)
 * (hdering) !!! WICHTIG !!! Da das Skript kein reiner Stromzähler mehr ist, habe ich den Pfad innerhalb der Instanz umbenannt "Strom" -> "Verbrauchszaehler". Bevor das neue Skript verwendet wird, solltet ihr euern Ordner in den Objekten nach "Verbrauchszaehler" umbenennen.
 * (hdering) Grundpreis kann jetzt einberechnet werden. Es wird vorher Grundpreis * 12 Monate / 365 Tage gerechnet und dieser Wert dem Tages/Wochen/Monats-... hinzuaddiert
